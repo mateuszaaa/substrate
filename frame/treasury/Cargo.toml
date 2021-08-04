@@ -19,7 +19,6 @@ sp-std = { version = "2.0.0", default-features = false }
 sp-runtime = { version = "2.0.0", default-features = false }
 frame-support = { version = "2.0.0", default-features = false }
 frame-system = { version = "2.0.0", default-features = false }
-pallet-balances = { version = "2.0.0", default-features = false }
 orml-tokens = { git = 'https://github.com/mangata-finance/open-runtime-module-library', default-features = false, branch="mangata-dev" }
 
 frame-benchmarking = { version = "2.0.0", default-features = false, optional = true }
@@ -28,6 +27,7 @@ frame-benchmarking = { version = "2.0.0", default-features = false, optional = t
 sp-io = { version = "2.0.0" }
 sp-core = { version = "2.0.0" }
 sp-storage = { version = "2.0.0" }
+pallet-balances = { version = "2.0.0", default-features = false }
 
 [features]
 default = ["std"]
