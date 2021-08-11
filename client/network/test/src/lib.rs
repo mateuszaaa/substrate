@@ -301,6 +301,7 @@ impl<D> Peer<D> {
 				&BlockId::Hash(at),
 				Default::default(),
 				false,
+                Default::default(),
 			).unwrap();
 			let block = edit_block(builder);
 			let hash = block.header.hash();

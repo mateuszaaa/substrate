@@ -1193,6 +1193,7 @@ impl<B, E, Block, RA> Client<B, E, Block, RA> where
 			Default::default(),
 			parent_header.hash(),
 			Default::default(),
+			Default::default(),
 		))
 	}
 }
@@ -1309,14 +1310,16 @@ impl<B, E, Block, RA> BlockBuilderProvider<B, Block, Self> for Client<B, E, Bloc
 		parent: &BlockId<Block>,
 		inherent_digests: DigestFor<Block>,
 		record_proof: R,
+        seed: Block::Hash,
 	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, Self, B>> {
 		sc_block_builder::BlockBuilder::new(
 			self,
 			self.expect_block_hash_from_id(parent)?,
 			self.expect_block_number_from_id(parent)?,
+            seed,
 			record_proof.into(),
 			inherent_digests,
-			&self.backend
+			&self.backend,
 		)
 	}
 
@@ -1325,14 +1328,15 @@ impl<B, E, Block, RA> BlockBuilderProvider<B, Block, Self> for Client<B, E, Bloc
 		inherent_digests: DigestFor<Block>,
 	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, Self, B>> {
 		let info = self.chain_info();
-		sc_block_builder::BlockBuilder::new(
-			self,
-			info.best_hash,
-			info.best_number,
-			RecordProof::No,
-			inherent_digests,
-			&self.backend,
-		)
+        todo!();
+		// sc_block_builder::BlockBuilder::new(
+		// 	self,
+		// 	info.best_hash,
+		// 	info.best_number,
+		// 	RecordProof::No,
+		// 	inherent_digests,
+		// 	&self.backend,
+		// )
 	}
 }
 

@@ -238,6 +238,7 @@ pub fn finalize_block() -> Header {
 		state_root: storage_root,
 		parent_hash,
 		digest,
+        seed: Default::default(),
 	}
 }
 

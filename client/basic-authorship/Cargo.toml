@@ -32,10 +32,10 @@ extrinsic-info-runtime-api = { version = "2.0.0", path='../../primitives/extrins
 sc-proposer-metrics = { version = "0.8.0", path = "../proposer-metrics" }
 tokio-executor = { version = "0.2.0-alpha.6", features = ["blocking"] }
 sc-transaction-pool = {  version = "2.0.0", path = "../transaction-pool" }
+pallet-random-seed = { path = "../../frame/random-seed", version = "2.0.0" }
 
 [dev-dependencies]
 # sc-transaction-pool = { version = "2.0.0", path = "../../client/transaction-pool" }
 parking_lot = "0.10.0"
-pallet-random-seed = { path = "../../frame/random-seed", version = "2.0.0" }
 substrate-test-runtime-client = { version = "2.0.0", path = "../../test-utils/runtime/client" }
 sp-ignore-tx = { "version" = "2.0.0", path = "../../primitives/ignore-tx" }

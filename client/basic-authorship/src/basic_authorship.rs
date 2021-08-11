@@ -201,13 +201,17 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 		/// It allows us to increase block utilization.
 		const MAX_SKIPPED_TRANSACTIONS: usize = 8;
 
+		let seed = pallet_random_seed::extract_inherent_data(&inherent_data)
+			.map_err(|_| String::from("cannot read random seed from inherents data"))?;
+
 		let mut block_builder = self.client.new_block_at(
 			&self.parent_id,
 			inherent_digests,
 			record_proof,
+            <<Block as BlockT>::Hash>::decode(&mut &seed.seed[..]).unwrap(),
 		)?;
 
-		let (seed, inherents) = block_builder.create_inherents(inherent_data.clone())?;
+		let inherents = block_builder.create_inherents(inherent_data.clone())?;
 		for inherent in inherents {
 			match block_builder.push(inherent) {
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {

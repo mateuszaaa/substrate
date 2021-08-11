@@ -88,6 +88,7 @@ pub trait BlockBuilderProvider<B, Block, RA>
 		parent: &BlockId<Block>,
 		inherent_digests: DigestFor<Block>,
 		record_proof: R,
+        seed: Block::Hash,
 	) -> sp_blockchain::Result<BlockBuilder<Block, RA, B>>;
 
 	/// Create a new block, built on the head of the chain.
@@ -124,6 +125,7 @@ where
 		api: &'a A,
 		parent_hash: Block::Hash,
 		parent_number: NumberFor<Block>,
+        seed: Block::Hash,
 		record_proof: RecordProof,
 		inherent_digests: DigestFor<Block>,
 		backend: &'a B,
@@ -133,7 +135,8 @@ where
 			Default::default(),
 			Default::default(),
 			parent_hash,
-			inherent_digests,
+			Default::default(),
+			seed,
 		);
 
 		let mut api = api.runtime_api();
@@ -330,10 +333,8 @@ where
 	pub fn create_inherents(
 		&mut self,
 		inherent_data: sp_inherents::InherentData,
-	) -> Result<(SeedType, Vec<Block::Extrinsic>), ApiErrorFor<A, Block>> {
+	) -> Result<Vec<Block::Extrinsic>, ApiErrorFor<A, Block>> {
 		let block_id = self.block_id.clone();
-		let seed = pallet_random_seed::extract_inherent_data(&inherent_data)
-			.map_err(|_| String::from("cannot read random seed from inherents data"))?;
 		self.api
 			.execute_in_transaction(move |api| {
 				// `create_inherents` should not change any state, to ensure this we always rollback
@@ -344,7 +345,6 @@ where
 					inherent_data,
 				))
 			})
-			.map(|inherents| (seed, inherents))
 	}
 }
 

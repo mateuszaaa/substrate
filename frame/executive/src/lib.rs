@@ -218,7 +218,8 @@ where
 			header.number(),
 			header.parent_hash(),
 			header.extrinsics_root(),
-			&digests
+			&digests,
+            header.seed()
 		);
 	}
 
@@ -237,6 +238,7 @@ where
 		parent_hash: &System::Hash,
 		extrinsics_root: &System::Hash,
 		digest: &Digest<System::Hash>,
+		seed: &System::Hash,
 	) {
 		if Self::runtime_upgraded() {
 			// System is not part of `AllModules`, so we need to call this manually.
@@ -251,6 +253,7 @@ where
 			extrinsics_root,
 			digest,
 			frame_system::InitKind::Full,
+            seed
 		);
 		<frame_system::Module<System> as OnInitialize<System::BlockNumber>>::on_initialize(*block_number);
 		let weight = <AllModules as OnInitialize<System::BlockNumber>>::on_initialize(*block_number)
@@ -484,6 +487,7 @@ where
 			header.extrinsics_root(),
 			&digests,
 			frame_system::InitKind::Inspection,
+            header.seed(),
 		);
 
 		// Initialize logger, so the log messages are visible

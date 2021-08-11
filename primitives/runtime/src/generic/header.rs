@@ -51,6 +51,8 @@ pub struct Header<Number: Copy + Into<U256> + TryFrom<U256>, Hash: HashT> {
 	pub extrinsics_root: Hash::Output,
 	/// A chain-specific digest of data useful for light clients or referencing auxiliary data.
 	pub digest: Digest<Hash::Output>,
+	/// Previous block extrinsics shuffling seed
+	pub seed: Hash::Output,
 }
 
 #[cfg(feature = "std")]
@@ -65,7 +67,8 @@ where
 			self.number.size_of(ops) +
 			self.state_root.size_of(ops) +
 			self.extrinsics_root.size_of(ops) +
-			self.digest.size_of(ops)
+			self.digest.size_of(ops) +
+			self.seed.size_of(ops)
 	}
 }
 
@@ -97,6 +100,7 @@ impl<Number, Hash> Decode for Header<Number, Hash> where
 			state_root: Decode::decode(input)?,
 			extrinsics_root: Decode::decode(input)?,
 			digest: Decode::decode(input)?,
+			seed: Decode::decode(input)?,
 		})
 	}
 }
@@ -112,6 +116,7 @@ impl<Number, Hash> Encode for Header<Number, Hash> where
 		dest.push(&self.state_root);
 		dest.push(&self.extrinsics_root);
 		dest.push(&self.digest);
+		dest.push(&self.seed);
 	}
 }
 
@@ -153,12 +158,15 @@ impl<Number, Hash> traits::Header for Header<Number, Hash> where
 		&mut self.digest
 	}
 
+    fn seed(&self) -> &Self::Hash { &self.seed }
+
 	fn new(
 		number: Self::Number,
 		extrinsics_root: Self::Hash,
 		state_root: Self::Hash,
 		parent_hash: Self::Hash,
 		digest: Digest<Self::Hash>,
+		seed: Self::Hash,
 	) -> Self {
 		Header {
 			number,
@@ -166,8 +174,10 @@ impl<Number, Hash> traits::Header for Header<Number, Hash> where
 			state_root,
 			parent_hash,
 			digest,
+			seed,
 		}
 	}
+
 }
 
 impl<Number, Hash> Header<Number, Hash> where

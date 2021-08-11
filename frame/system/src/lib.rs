@@ -438,6 +438,9 @@ decl_storage! {
 		/// The number of events in the `Events<T>` list.
 		EventCount get(fn event_count): EventIndex;
 
+		/// The number of events in the `Events<T>` list.
+		ShufflingSeed get(fn shuffling_seed): T::Hash;
+
 		// TODO: https://github.com/paritytech/substrate/issues/2553
 		// Possibly, we can improve it by using something like:
 		// `Option<(BlockNumber, Vec<EventIndex>)>`, however in this case we won't be able to use
@@ -1012,6 +1015,7 @@ impl<T: Trait> Module<T> {
 		txs_root: &T::Hash,
 		digest: &DigestOf<T>,
 		kind: InitKind,
+		seed: &T::Hash,
 	) {
 		// populate environment
 		ExecutionPhase::put(Phase::Initialization);
@@ -1021,6 +1025,7 @@ impl<T: Trait> Module<T> {
 		<ParentHash<T>>::put(parent_hash);
 		<BlockHash<T>>::insert(*number - One::one(), parent_hash);
 		<ExtrinsicsRoot<T>>::put(txs_root);
+		<ShufflingSeed<T>>::put(seed);
 
 		// Remove previous block data from storage
 		BlockWeight::kill();
@@ -1043,6 +1048,7 @@ impl<T: Trait> Module<T> {
 		let parent_hash = <ParentHash<T>>::take();
 		let mut digest = <Digest<T>>::take();
 		let extrinsics_root = <ExtrinsicsRoot<T>>::take();
+		let seed = <ShufflingSeed<T>>::take();
 
 		// move block hash pruning window by one block
 		let block_hash_count = <T::BlockHashCount>::get();
@@ -1077,7 +1083,7 @@ impl<T: Trait> Module<T> {
 		//
 		// stay to be inspected by the client and will be cleared by `Self::initialize`.
 
-		<T::Header as traits::Header>::new(number, extrinsics_root, storage_root, parent_hash, digest)
+		<T::Header as traits::Header>::new(number, extrinsics_root, storage_root, parent_hash, digest, seed)
 	}
 
 	/// Deposits a log and ensures it matches the block's log data.
@@ -1108,6 +1114,13 @@ impl<T: Trait> Module<T> {
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn set_block_number(n: T::BlockNumber) {
 		<Number<T>>::put(n);
+	}
+
+	/// Set the block number to something in particular. Can be used as an alternative to
+	/// `initialize` for tests that don't need to bother with the other environment entries.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	pub fn set_block_seed(seed: T::Hash) {
+		<ShufflingSeed<T>>::put(seed);
 	}
 
 	/// Sets the index of extrinsic that is currently executing.

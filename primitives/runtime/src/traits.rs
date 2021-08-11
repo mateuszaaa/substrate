@@ -506,6 +506,7 @@ pub trait Header:
 		state_root: Self::Hash,
 		parent_hash: Self::Hash,
 		digest: Digest<Self::Hash>,
+		seed: Self::Hash,
 	) -> Self;
 
 	/// Returns a reference to the header number.
@@ -537,6 +538,9 @@ pub trait Header:
 	fn hash(&self) -> Self::Hash {
 		<Self::Hashing as Hash>::hash_of(self)
 	}
+
+	/// Returns seed used for shuffling
+	fn seed(&self) -> &Self::Hash;
 }
 
 /// Something which fulfills the abstract idea of a Substrate block. It has types for
