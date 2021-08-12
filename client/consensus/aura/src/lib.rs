@@ -1108,7 +1108,8 @@ mod tests {
 			H256::from_low_u64_be(0),
 			H256::from_low_u64_be(0),
 			Default::default(),
-			Default::default()
+			Default::default(),
+            Default::default(),
 		);
 		assert!(worker.claim_slot(&head, 0, &authorities).is_none());
 		assert!(worker.claim_slot(&head, 1, &authorities).is_none());

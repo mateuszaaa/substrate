@@ -923,7 +923,7 @@ fn allows_reimporting_change_blocks() {
 	);
 
 	let full_client = client.as_full().unwrap();
-	let builder = full_client.new_block_at(&BlockId::Number(0), Default::default(), false).unwrap();
+	let builder = full_client.new_block_at(&BlockId::Number(0), Default::default(), false, Default::default()).unwrap();
 	let mut block = builder.build(Default::default()).unwrap().block;
 	add_scheduled_change(&mut block, ScheduledChange {
 		next_authorities: make_ids(peers_b),
@@ -973,7 +973,7 @@ fn test_bad_justification() {
 	);
 
 	let full_client = client.as_full().expect("only full clients are used in test");
-	let builder = full_client.new_block_at(&BlockId::Number(0), Default::default(), false).unwrap();
+	let builder = full_client.new_block_at(&BlockId::Number(0), Default::default(), false, Default::default()).unwrap();
 	let mut block = builder.build(Default::default()).unwrap().block;
 
 	add_scheduled_change(&mut block, ScheduledChange {
@@ -1756,7 +1756,7 @@ fn imports_justification_for_regular_blocks_on_import() {
 	>(client.clone());
 
 	let full_client = client.as_full().expect("only full clients are used in test");
-	let builder = full_client.new_block_at(&BlockId::Number(0), Default::default(), false).unwrap();
+	let builder = full_client.new_block_at(&BlockId::Number(0), Default::default(), false, Default::default()).unwrap();
 	let block = builder.build(Default::default()).unwrap().block;
 
 	let block_hash = block.hash();

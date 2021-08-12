@@ -745,6 +745,7 @@ mod tests {
 				H256::default(),
 				[69u8; 32].into(),
 				Digest::default(),
+                Default::default(),
 			));
 			let r = Executive::apply_extrinsic(xt);
 			assert!(r.is_ok());
@@ -771,6 +772,7 @@ mod tests {
 					state_root: hex!("465a1569d309039bdf84b0479d28064ea29e6584584dc7d788904bb14489c6f6").into(),
 					extrinsics_root: hex!("03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314").into(),
 					digest: Digest { logs: vec![], },
+                    seed: Default::default(),
 				},
 				extrinsics: vec![],
 			}, Default::default());
@@ -789,6 +791,7 @@ mod tests {
 					state_root: [0u8; 32].into(),
 					extrinsics_root: hex!("03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314").into(),
 					digest: Digest { logs: vec![] },
+                    seed: Default::default(),
 				},
 				extrinsics: vec![],
 			}, Default::default());
@@ -807,6 +810,7 @@ mod tests {
 					state_root: hex!("49cd58a254ccf6abc4a023d9a22dcfc421e385527a250faec69f8ad0d8ed3e48").into(),
 					extrinsics_root: [0u8; 32].into(),
 					digest: Digest { logs: vec![], },
+                    seed: Default::default(),
 				},
 				extrinsics: vec![],
 			}, Default::default());
@@ -825,6 +829,7 @@ mod tests {
 				H256::default(),
 				[69u8; 32].into(),
 				Digest::default(),
+                Default::default(),
 			));
 			assert!(Executive::apply_extrinsic(xt).is_err());
 			assert_eq!(<frame_system::Module<Runtime>>::extrinsic_index(), Some(0));
@@ -849,6 +854,7 @@ mod tests {
 				H256::default(),
 				[69u8; 32].into(),
 				Digest::default(),
+				Default::default(),
 			));
 			// Base block execution weight + `on_initialize` weight from the custom module.
 			assert_eq!(<frame_system::Module<Runtime>>::block_weight().total(), base_block_weight);
@@ -890,6 +896,7 @@ mod tests {
 				H256::default(),
 				[69u8; 32].into(),
 				Digest::default(),
+                Default::default(),
 			));
 
 			assert_eq!(<frame_system::Module<Runtime>>::block_weight().total(), base_block_weight);
@@ -918,6 +925,7 @@ mod tests {
 				H256::default(),
 				[69u8; 32].into(),
 				Digest::default(),
+                Default::default(),
 			));
 
 			// Block weight cleaned up on `System::initialize`
@@ -965,6 +973,7 @@ mod tests {
 					H256::default(),
 					[69u8; 32].into(),
 					Digest::default(),
+                    Default::default(),
 				));
 
 				if lock == WithdrawReasons::except(WithdrawReason::TransactionPayment) {
@@ -1084,6 +1093,7 @@ mod tests {
 				H256::default(),
 				[69u8; 32].into(),
 				Digest::default(),
+                Default::default(),
 			));
 
 			assert_eq!(&sp_io::storage::get(TEST_KEY).unwrap()[..], *b"module");

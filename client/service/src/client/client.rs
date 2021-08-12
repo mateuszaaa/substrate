@@ -1328,15 +1328,15 @@ impl<B, E, Block, RA> BlockBuilderProvider<B, Block, Self> for Client<B, E, Bloc
 		inherent_digests: DigestFor<Block>,
 	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, Self, B>> {
 		let info = self.chain_info();
-        todo!();
-		// sc_block_builder::BlockBuilder::new(
-		// 	self,
-		// 	info.best_hash,
-		// 	info.best_number,
-		// 	RecordProof::No,
-		// 	inherent_digests,
-		// 	&self.backend,
-		// )
+		sc_block_builder::BlockBuilder::new(
+			self,
+			info.best_hash,
+			info.best_number,
+			Default::default(),
+			RecordProof::No,
+			inherent_digests,
+			&self.backend,
+		)
 	}
 }
 

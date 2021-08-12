@@ -135,7 +135,7 @@ where
 			Default::default(),
 			Default::default(),
 			parent_hash,
-			Default::default(),
+			inherent_digests,
 			seed,
 		);
 
@@ -366,6 +366,7 @@ mod tests {
 			&client,
 			client.info().best_hash,
 			client.info().best_number,
+			Default::default(),
 			RecordProof::Yes,
 			Default::default(),
 			&*backend,

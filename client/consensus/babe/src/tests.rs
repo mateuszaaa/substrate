@@ -119,6 +119,7 @@ impl DummyProposer {
 			&BlockId::Hash(self.parent_hash),
 			pre_digests,
 			false,
+            Default::default(),
 		).unwrap();
 
 		let mut block = match block_builder.build(Default::default()).map_err(|e| e.into()) {

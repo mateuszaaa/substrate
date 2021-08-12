@@ -673,7 +673,7 @@ pub(crate) mod tests {
 			0 => Default::default(),
 			_ => header(number - 1).hash(),
 		};
-		Header::new(number, H256::from_low_u64_be(0), H256::from_low_u64_be(0), parent_hash, Default::default())
+		Header::new(number, H256::from_low_u64_be(0), H256::from_low_u64_be(0), parent_hash, Default::default(), Default::default())
 	}
 
 	fn side_header(number: u64) -> Header {
@@ -683,6 +683,7 @@ pub(crate) mod tests {
 			H256::from_low_u64_be(1),
 			header(number - 1).hash(),
 			Default::default(),
+            Default::default(),
 		)
 	}
 
@@ -693,6 +694,7 @@ pub(crate) mod tests {
 			H256::from_low_u64_be(1),
 			side_header(number - 1).hash(),
 			Default::default(),
+            Default::default(),
 		)
 	}
 
