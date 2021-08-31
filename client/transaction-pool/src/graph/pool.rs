@@ -22,7 +22,7 @@ use futures::{channel::mpsc::Receiver, Future};
 use sc_transaction_pool_api::error;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{self, Block as BlockT, SaturatedConversion},
+	traits::{self, BlakeTwo256, Block as BlockT, Hash as HashT, SaturatedConversion},
 	transaction_validity::{
 		TransactionSource, TransactionTag as Tag, TransactionValidity, TransactionValidityError,
 	},
@@ -34,6 +34,7 @@ use super::{
 	validated_pool::{IsValidator, ValidatedPool, ValidatedTransaction},
 	watcher::Watcher,
 };
+use codec::Encode;
 
 /// Modification notification event stream type;
 pub type EventStream<H> = Receiver<H>;
@@ -395,6 +396,7 @@ impl<B: ChainApi> Pool<B> {
 			return (hash, ValidatedTransaction::Invalid(hash, err))
 		}
 
+
 		let validation_result = self
 			.validated_pool
 			.api()
@@ -411,6 +413,8 @@ impl<B: ChainApi> Pool<B> {
 				if validity.provides.is_empty() {
 					ValidatedTransaction::Invalid(hash, error::Error::NoTagsProvided.into())
 				} else {
+                    let tx_hash = BlakeTwo256::hash(&xt.encode());
+                    log::warn!(target: "prio", "{} => {}", tx_hash, validity.priority);
 					ValidatedTransaction::valid_at(
 						block_number.saturated_into::<u64>(),
 						hash,
