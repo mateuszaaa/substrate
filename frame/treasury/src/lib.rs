@@ -79,6 +79,7 @@ use frame_support::traits::{EnsureOrigin};
 use codec::{Encode, Decode};
 use frame_system::{ensure_signed};
 pub use weights::WeightInfo;
+use orml_tokens::{MultiTokenNegativeImbalance, MultiTokenCurrency, MultiTokenCurrencyAdapter};
 
 pub type BalanceOf<T, I=DefaultInstance> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -450,4 +451,28 @@ impl<T: Config<I>, I: Instance> OnUnbalanced<NegativeImbalanceOf<T, I>> for Modu
 
 		Self::deposit_event(RawEvent::Deposit(numeric_amount));
 	}
+}
+
+pub struct MultiOnUnbalancedWrapper<Module>{
+    _marker: sp_std::marker::PhantomData<Module>,
+}
+
+impl<T,I,Tokens> OnUnbalanced<MultiTokenNegativeImbalance<Tokens>> for MultiOnUnbalancedWrapper<Module<T,I>> where
+	T: Config<I>,
+	I: Instance, 
+	Tokens: orml_tokens::Config,
+	Tokens::AccountId: From<T::AccountId>,
+    <T::Currency as Currency<T::AccountId>>::Balance : From<u128>,
+{
+
+	fn on_nonzero_unbalanced(amount: MultiTokenNegativeImbalance<Tokens>) {
+		let numeric_amount = amount.peek().into();
+		let currency_id = amount.0;
+
+		// Must resolve into existing but better to be safe.
+		let _ = MultiTokenCurrencyAdapter::<Tokens>::resolve_creating(currency_id, &Module::<T,I>::account_id().into(), amount);
+
+		Module::<T,I>::deposit_event(RawEvent::Deposit(numeric_amount.into()));
+	}
+
 }
