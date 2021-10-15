@@ -19,9 +19,10 @@ sp-std = { version = "3.0.0", default-features = false, path = "../../primitives
 sp-runtime = { version = "3.0.0", default-features = false, path = "../../primitives/runtime" }
 frame-support = { version = "3.0.0", default-features = false, path = "../support" }
 frame-system = { version = "3.0.0", default-features = false, path = "../system" }
-pallet-balances = { version = "3.0.0", default-features = false, path = "../balances" }
 impl-trait-for-tuples = "0.2.1"
-orml-tokens = { git = 'https://github.com/mangata-finance/open-runtime-module-library', default-features = false, branch="mangata-dev" }
+orml-tokens = { path = "../../../open-runtime-module-library/tokens", default-features = false, branch="mangata-dev" }
+
+#orml-tokens = { git = 'https://github.com/mangata-finance/open-runtime-module-library', default-features = false, branch="mangata-dev" }
 
 frame-benchmarking = { version = "3.0.0", default-features = false, path = "../benchmarking", optional = true }
 
@@ -29,6 +30,7 @@ frame-benchmarking = { version = "3.0.0", default-features = false, path = "../b
 sp-io ={ version = "3.0.0", path = "../../primitives/io" }
 sp-core = { version = "3.0.0", path = "../../primitives/core" }
 sp-storage = { version = "3.0.0", path = "../../primitives/storage" }
+pallet-balances = { version = "3.0.0", default-features = false, path = "../balances" }
 
 [features]
 default = ["std"]
@@ -40,6 +42,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
+	"orml-tokens/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
