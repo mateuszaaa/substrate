@@ -41,8 +41,13 @@ use parking_lot::Mutex;
 use sp_api::{ProvideRuntimeApi, ApiRef};
 use sp_arithmetic::traits::BaseArithmetic;
 use sp_consensus::{BlockImport, Proposer, SyncOracle, SelectChain, CanAuthorWith, SlotData, RecordProof};
-use sp_consensus_slots::Slot;
+use sp_consensus_slots::{Slot, KEY_TYPE};
 use sp_inherents::{InherentData, InherentDataProviders};
+use sp_keystore::{vrf, SyncCryptoStorePtr, SyncCryptoStore};
+use sp_core::{ShufflingSeed, crypto::Public};
+use sp_ver::RandomSeedInherentDataProvider;
+use sp_inherents::ProvideInherentData;
+use sp_application_crypto::{sr25519, AppKey};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header, HashFor, NumberFor}
@@ -80,6 +85,40 @@ pub trait SlotWorker<B: BlockT> {
 	/// the slot. Otherwise `None` is returned.
 	fn on_slot(&mut self, chain_head: B::Header, slot_info: SlotInfo) -> Self::OnSlot;
 }
+
+fn create_shuffling_seed_input_data<'a>(prev_seed: &'a ShufflingSeed) -> vrf::VRFTranscriptData {
+	vrf::VRFTranscriptData {
+		label: b"shuffling_seed",
+		items: vec![("prev_seed", vrf::VRFTranscriptValue::Bytes(prev_seed.seed.as_bytes().iter().cloned().collect()))],
+	}
+}
+
+fn inject_inherents<'a>(
+	keystore: SyncCryptoStorePtr,
+	public: &'a sr25519::Public,
+	prev_seed: &'a ShufflingSeed,
+	slot_info: &'a mut SlotInfo,
+) -> Result<(), sp_consensus::Error> {
+	let transcript_data = create_shuffling_seed_input_data(&prev_seed);
+    let signature = SyncCryptoStore::sr25519_vrf_sign(&(*keystore), KEY_TYPE, public, transcript_data)
+		.map_err(|_| sp_consensus::Error::StateUnavailable(String::from("signing seed failure")))?;
+
+	sp_ignore_tx::IgnoreTXInherentDataProvider(
+		false
+	)
+	.provide_inherent_data(&mut slot_info.inherent_data)
+	.map_err(|_| sp_consensus::Error::StateUnavailable(String::from("cannot inject RandomSeed inherent data")))?;
+
+	RandomSeedInherentDataProvider(ShufflingSeed {
+		seed: signature.output.to_bytes().into(),
+		proof: signature.proof.to_bytes().into(),
+	})
+	.provide_inherent_data(&mut slot_info.inherent_data)
+	.map_err(|_| sp_consensus::Error::StateUnavailable(String::from("cannot inject RandomSeed inherent data")))?;
+
+	Ok(())
+}
+
 
 /// A skeleton implementation for `SlotWorker` which tries to claim a slot at
 /// its beginning and tries to produce a block if successfully claimed, timing
@@ -130,6 +169,9 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		slot: Slot,
 		epoch_data: &Self::EpochData,
 	) -> Option<Self::Claim>;
+
+    /// reads key required for signing shuffling seed
+    fn get_key(&self, claim: &Self::Claim) -> sr25519::Public;
 
 	/// Notifies the given slot. Similar to `claim_slot`, but will be called no matter whether we
 	/// need to author blocks or not.
@@ -204,15 +246,17 @@ pub trait SimpleSlotWorker<B: BlockT> {
 	fn on_slot(
 		&mut self,
 		chain_head: B::Header,
-		slot_info: SlotInfo,
+		mut slot_info: SlotInfo,
 	) -> Pin<Box<dyn Future<Output = Option<SlotResult<B>>> + Send>>
 	where
 		<Self::Proposer as Proposer<B>>::Proposal: Unpin + Send + 'static,
 	{
+        let keystore = self.keystore().clone();
 		let (timestamp, slot) = (slot_info.timestamp, slot_info.slot);
 
 		let slot_remaining_duration = self.slot_remaining_duration(&slot_info);
 		let proposing_remaining_duration = self.proposing_remaining_duration(&chain_head, &slot_info);
+
 
 		let proposing_remaining = match proposing_remaining_duration {
 			Some(r) if r.as_secs() == 0 && r.as_nanos() == 0 => {
@@ -265,6 +309,11 @@ pub trait SimpleSlotWorker<B: BlockT> {
 			None => return Box::pin(future::ready(None)),
 			Some(claim) => claim,
 		};
+
+        
+        let key = self.get_key(&claim);
+        inject_inherents(keystore, &key , chain_head.seed(), & mut slot_info);
+
 
 		if self.should_backoff(slot, &chain_head) {
 			return Box::pin(future::ready(None));
@@ -380,6 +429,9 @@ pub trait SimpleSlotWorker<B: BlockT> {
 			r.map_err(|e| warn!(target: "slots", "Encountered consensus error: {:?}", e)).ok()
 		}).boxed()
 	}
+
+    /// keystore handle
+    fn keystore(&self) -> SyncCryptoStorePtr;
 }
 
 impl<B: BlockT, T: SimpleSlotWorker<B>> SlotWorker<B> for T {

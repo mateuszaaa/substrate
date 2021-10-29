@@ -608,6 +608,14 @@ cfg_if! {
 				}
 			}
 
+			impl extrinsic_info_runtime_api::runtime_api::ExtrinsicInfoRuntimeApi<Block> for Runtime {
+				fn get_info(
+					_tx: <Block as BlockT>::Extrinsic,
+				) -> Option<extrinsic_info_runtime_api::ExtrinsicInfo> {
+					None
+				}
+			}
+
 			impl sp_api::Metadata<Block> for Runtime {
 				fn metadata() -> OpaqueMetadata {
 					unimplemented!()
@@ -860,6 +868,14 @@ cfg_if! {
 
 				fn initialize_block(header: &<Block as BlockT>::Header) {
 					system::initialize_block(header)
+				}
+			}
+
+			impl extrinsic_info_runtime_api::runtime_api::ExtrinsicInfoRuntimeApi<Block> for Runtime {
+				fn get_info(
+					_tx: <Block as BlockT>::Extrinsic,
+				) -> Option<extrinsic_info_runtime_api::ExtrinsicInfo> {
+					unimplemented!()
 				}
 			}
 
@@ -1237,7 +1253,7 @@ mod tests {
 		let (new_block_id, block) = {
 			let mut builder = client.new_block(Default::default()).unwrap();
 			builder.push_storage_change(HEAP_PAGES.to_vec(), Some(32u64.encode())).unwrap();
-			let block = builder.build().unwrap().block;
+			let block = builder.build(Default::default()).unwrap().block;
 			let hash = block.header.hash();
 			(BlockId::Hash(hash), block)
 		};

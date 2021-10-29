@@ -1171,6 +1171,8 @@ pub mod key_types {
 	pub const STAKING: KeyTypeId = KeyTypeId(*b"stak");
 	/// Key type for equivocation reporting, built-in. Identified as `fish`.
 	pub const REPORTING: KeyTypeId = KeyTypeId(*b"fish");
+	/// Key type for shuffling seed signing
+	pub const VER: KeyTypeId = KeyTypeId(*b"_VER");
 	/// A key type ID useful for tests.
 	pub const DUMMY: KeyTypeId = KeyTypeId(*b"dumy");
 }

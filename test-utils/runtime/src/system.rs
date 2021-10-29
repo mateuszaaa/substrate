@@ -148,7 +148,7 @@ fn execute_block_with_state_root_handler(block: &mut Block, mode: Mode) {
 pub struct BlockExecutor;
 
 impl frame_executive::ExecuteBlock<Block> for BlockExecutor {
-	fn execute_block(block: Block) {
+	fn execute_block(block: Block, _info: Vec<Option<sp_runtime::AccountId32>>) {
 		execute_block(block);
 	}
 }
@@ -238,6 +238,7 @@ pub fn finalize_block() -> Header {
 		state_root: storage_root,
 		parent_hash,
 		digest,
+        seed: Default::default(),
 	}
 }
 
@@ -394,6 +395,7 @@ mod tests {
 			state_root: Default::default(),
 			extrinsics_root: Default::default(),
 			digest: Default::default(),
+            seed: Default::default(),
 		};
 		let mut b = Block {
 			header: h,
@@ -441,6 +443,7 @@ mod tests {
 				state_root: Default::default(),
 				extrinsics_root: Default::default(),
 				digest: Default::default(),
+                seed: Default::default(),
 			},
 			extrinsics: vec![
 				Transfer {
@@ -462,6 +465,7 @@ mod tests {
 				state_root: Default::default(),
 				extrinsics_root: Default::default(),
 				digest: Default::default(),
+                seed: Default::default(),
 			},
 			extrinsics: vec![
 				Transfer {

@@ -22,9 +22,11 @@
 
 use std::{pin::Pin, time, sync::Arc};
 use sc_client_api::backend;
+use extrinsic_info_runtime_api::runtime_api::ExtrinsicInfoRuntimeApi;
 use codec::Decode;
 use sp_consensus::{evaluation, Proposal, RecordProof};
 use sp_core::traits::SpawnNamed;
+use sp_core::ExecutionContext;
 use sp_inherents::InherentData;
 use log::{error, info, debug, trace, warn};
 use sp_runtime::{
@@ -34,11 +36,14 @@ use sp_runtime::{
 use sp_transaction_pool::{TransactionPool, InPoolTransaction};
 use sc_telemetry::{telemetry, CONSENSUS_INFO};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
-use sp_api::{ProvideRuntimeApi, ApiExt};
+use sp_api::{ProvideRuntimeApi, ApiExt, TransactionOutcome};
 use futures::{future, future::{Future, FutureExt}, channel::oneshot, select};
 use sp_blockchain::{HeaderBackend, ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed};
+use sp_inherents::ProvideInherentData;
 use std::marker::PhantomData;
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_proposer_metrics::MetricsLink as PrometheusMetrics;
 
@@ -138,7 +143,8 @@ impl<A, B, Block, C> sp_consensus::Environment<Block> for
 			C: BlockBuilderProvider<B, Block, C> + HeaderBackend<Block> + ProvideRuntimeApi<Block>
 				+ Send + Sync + 'static,
 			C::Api: ApiExt<Block, StateBackend = backend::StateBackendFor<B, Block>>
-				+ BlockBuilderApi<Block, Error = sp_blockchain::Error>,
+				+ BlockBuilderApi<Block, Error = sp_blockchain::Error>
+				+ ExtrinsicInfoRuntimeApi<Block>,
 {
 	type CreateProposer = future::Ready<Result<Self::Proposer, Self::Error>>;
 	type Proposer = Proposer<B, Block, C, A>;
@@ -175,7 +181,8 @@ impl<A, B, Block, C> sp_consensus::Proposer<Block> for
 			C: BlockBuilderProvider<B, Block, C> + HeaderBackend<Block> + ProvideRuntimeApi<Block>
 				+ Send + Sync + 'static,
 			C::Api: ApiExt<Block, StateBackend = backend::StateBackendFor<B, Block>>
-				+ BlockBuilderApi<Block, Error = sp_blockchain::Error>,
+				+ BlockBuilderApi<Block, Error = sp_blockchain::Error>
+				+ ExtrinsicInfoRuntimeApi<Block>,
 {
 	type Transaction = backend::TransactionFor<B, Block>;
 	type Proposal = Pin<Box<dyn Future<
@@ -185,13 +192,19 @@ impl<A, B, Block, C> sp_consensus::Proposer<Block> for
 
 	fn propose(
 		self,
-		inherent_data: InherentData,
+		mut inherent_data: InherentData,
 		inherent_digests: DigestFor<Block>,
 		max_duration: time::Duration,
 		record_proof: RecordProof,
 	) -> Self::Proposal {
 		let (tx, rx) = oneshot::channel();
 		let spawn_handle = self.spawn_handle.clone();
+
+        if let Ok(None) = inherent_data.get_data::<sp_core::ShufflingSeed>(&sp_ver::RANDOM_SEED_INHERENT_IDENTIFIER){
+            sp_ver::RandomSeedInherentDataProvider(Default::default())
+                .provide_inherent_data(&mut inherent_data)
+                .unwrap();
+        }
 
 		spawn_handle.spawn_blocking("basic-authorship-proposer", Box::pin(async move {
 			// leave some time for evaluation and block finalization (33%)
@@ -215,13 +228,14 @@ impl<A, B, Block, C> sp_consensus::Proposer<Block> for
 
 impl<A, B, Block, C> Proposer<B, Block, C, A>
 	where
-		A: TransactionPool<Block = Block>,
+		A: TransactionPool<Block = Block> + 'static,
 		B: backend::Backend<Block> + Send + Sync + 'static,
 		Block: BlockT,
 		C: BlockBuilderProvider<B, Block, C> + HeaderBackend<Block> + ProvideRuntimeApi<Block>
 			+ Send + Sync + 'static,
 		C::Api: ApiExt<Block, StateBackend = backend::StateBackendFor<B, Block>>
-			+ BlockBuilderApi<Block, Error = sp_blockchain::Error>,
+			+ BlockBuilderApi<Block, Error = sp_blockchain::Error>
+			+ ExtrinsicInfoRuntimeApi<Block>,
 {
 	async fn propose_with(
 		self,
@@ -241,8 +255,11 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 			record_proof,
 		)?;
 
-		for inherent in block_builder.create_inherents(inherent_data)? {
-			match block_builder.push(inherent) {
+		let (seed, inherents) = block_builder.create_inherents(inherent_data.clone())?;
+        debug!(target:"block_builder", "found {} inherents", inherents.len());
+		for inherent in inherents {
+			debug!(target:"block_builder", "processing inherent");
+			match block_builder.record_without_commiting_changes(inherent) {
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() =>
 					warn!("⚠️  Dropping non-mandatory inherent from overweight block."),
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.was_mandatory() => {
@@ -252,7 +269,9 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 				Err(e) => {
 					warn!("❗️ Inherent extrinsic returned unexpected error: {}. Dropping.", e);
 				}
-				Ok(_) => {}
+				Ok(_) => {
+					trace!(target:"block_builder", "inherent pushed into the block");
+				}
 			}
 		}
 
@@ -260,6 +279,11 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 		let block_timer = time::Instant::now();
 		let mut skipped = 0;
 		let mut unqueue_invalid = Vec::new();
+        block_builder.apply_previous_block(seed.clone());
+
+        let api = self.client.runtime_api();
+        let at = &self.parent_id;
+
 
 		let mut t1 = self.transaction_pool.ready_at(self.parent_number).fuse();
 		let mut t2 = futures_timer::Delay::new(deadline.saturating_duration_since((self.now)()) / 8).fuse();
@@ -276,54 +300,60 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 			},
 		};
 
-		debug!("Attempting to push transactions from the pool.");
-		debug!("Pool status: {:?}", self.transaction_pool.status());
-		for pending_tx in pending_iterator {
-			if (self.now)() > deadline {
-				debug!(
-					"Consensus deadline reached when pushing block transactions, \
-					proceeding with proposing."
-				);
-				break;
-			}
 
-			let pending_tx_data = pending_tx.data().clone();
-			let pending_tx_hash = pending_tx.hash().clone();
-			trace!("[{:?}] Pushing to the block.", pending_tx_hash);
-			match sc_block_builder::BlockBuilder::push(&mut block_builder, pending_tx_data) {
-				Ok(()) => {
-					debug!("[{:?}] Pushed to the block.", pending_tx_hash);
-				}
-				Err(ApplyExtrinsicFailed(Validity(e)))
-						if e.exhausted_resources() => {
-					if skipped < MAX_SKIPPED_TRANSACTIONS {
-						skipped += 1;
-						debug!(
-							"Block seems full, but will try {} more transactions before quitting.",
-							MAX_SKIPPED_TRANSACTIONS - skipped,
-						);
-					} else {
-						debug!("Block is full, proceed with proposing.");
-						break;
-					}
-				}
-				Err(e) if skipped > 0 => {
-					trace!(
-						"[{:?}] Ignoring invalid transaction when skipping: {}",
-						pending_tx_hash,
-						e
-					);
-				}
-				Err(e) => {
-					debug!("[{:?}] Invalid transaction: {}", pending_tx_hash, e);
-					unqueue_invalid.push(pending_tx_hash);
-				}
-			}
-		}
 
-		self.transaction_pool.remove_invalid(&unqueue_invalid);
+		// after previous block is applied it is possible to prevalidate incomming transaction
+		// but eventually changess needs to be rolled back, as those can be executed
+		// only in the following(future) block
+		api.execute_in_transaction(|api| {
+            debug!("Attempting to push transactions from the pool.");
+            debug!("Pool status: {:?}", self.transaction_pool.status());
+            for pending_tx in pending_iterator {
+                if (self.now)() > deadline {
+                    debug!(
+                        "Consensus deadline reached when pushing block transactions, \
+                        proceeding with proposing."
+                    );
+                    break;
+                }
 
-		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
+                let pending_tx_data = pending_tx.data().clone();
+                let pending_tx_hash = pending_tx.hash().clone();
+                trace!("[{:?}] Pushing to the block.", pending_tx_hash);
+                match sc_block_builder::BlockBuilder::push_with_api(&mut block_builder, api, pending_tx_data) {
+                    Ok(()) => {
+                        debug!("[{:?}] Pushed to the block.", pending_tx_hash);
+                    }
+                    Err(ApplyExtrinsicFailed(Validity(e)))
+                            if e.exhausted_resources() => {
+                        if skipped < MAX_SKIPPED_TRANSACTIONS {
+                            skipped += 1;
+                            debug!(
+                                "Block seems full, but will try {} more transactions before quitting.",
+                                MAX_SKIPPED_TRANSACTIONS - skipped,
+                            );
+                        } else {
+                            debug!("Block is full, proceed with proposing.");
+                            break;
+                        }
+                    }
+                    Err(e) if skipped > 0 => {
+                        trace!(
+                            "[{:?}] Ignoring invalid transaction when skipping: {}",
+                            pending_tx_hash,
+                            e
+                        );
+                    }
+                    Err(e) => {
+                        debug!("[{:?}] Invalid transaction: {}", pending_tx_hash, e);
+                        unqueue_invalid.push(pending_tx_hash);
+                    }
+                }
+            }
+            TransactionOutcome::Rollback(())
+        });
+
+		let (block, storage_changes, proof) = block_builder.build(seed)?.into_inner();
 
 		self.metrics.report(
 			|metrics| {
@@ -372,7 +402,7 @@ mod tests {
 	use parking_lot::Mutex;
 	use sp_consensus::{BlockOrigin, Proposer};
 	use substrate_test_runtime_client::{
-		prelude::*, TestClientBuilder, runtime::{Extrinsic, Transfer}, TestClientBuilderExt,
+		prelude::*, TestClientBuilder, runtime::{Block, Extrinsic, Transfer}, TestClientBuilderExt,
 	};
 	use sp_transaction_pool::{ChainEvent, MaintainedTransactionPool, TransactionSource};
 	use sc_transaction_pool::BasicPool;
@@ -380,8 +410,19 @@ mod tests {
 	use sp_blockchain::HeaderBackend;
 	use sp_runtime::traits::NumberFor;
 	use sc_client_api::Backend;
+    use sp_ver::RandomSeedInherentDataProvider;
+    use sp_inherents::ProvideInherentData;
 
 	const SOURCE: TransactionSource = TransactionSource::External;
+
+	/// inject shuffling seed that is mandatory in mangata
+	fn create_inherents() -> InherentData {
+		let mut data: InherentData = Default::default();
+		RandomSeedInherentDataProvider(Default::default())
+			.provide_inherent_data(&mut data)
+			.unwrap();
+		data
+	}
 
 	fn extrinsic(nonce: u64) -> Extrinsic {
 		Transfer {
@@ -452,7 +493,7 @@ mod tests {
 		// when
 		let deadline = time::Duration::from_secs(3);
 		let block = futures::executor::block_on(
-			proposer.propose(Default::default(), Default::default(), deadline, RecordProof::No)
+			proposer.propose(create_inherents(), Default::default(), deadline, RecordProof::No)
 		).map(|r| r.block).unwrap();
 
 		// then
@@ -497,14 +538,15 @@ mod tests {
 
 		let deadline = time::Duration::from_secs(1);
 		futures::executor::block_on(
-			proposer.propose(Default::default(), Default::default(), deadline, RecordProof::No)
+			proposer.propose(create_inherents(), Default::default(), deadline, RecordProof::No)
 		).map(|r| r.block).unwrap();
 	}
 
 	#[test]
 	fn proposed_storage_changes_should_match_execute_block_storage_changes() {
+        env_logger::try_init();
 		let (client, backend) = TestClientBuilder::new().build_with_backend();
-		let client = Arc::new(client);
+		let mut client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let txpool = BasicPool::new_full(
 			Default::default(),
@@ -543,13 +585,17 @@ mod tests {
 
 		let deadline = time::Duration::from_secs(9);
 		let proposal = futures::executor::block_on(
-			proposer.propose(Default::default(), Default::default(), deadline, RecordProof::No),
+			proposer.propose(create_inherents(), Default::default(), deadline, RecordProof::No),
 		).unwrap();
 
 		assert_eq!(proposal.block.extrinsics().len(), 1);
+        // client.import(BlockOrigin::Own, proposal.block).unwrap();
 
 		let api = client.runtime_api();
-		api.execute_block(&block_id, proposal.block).unwrap();
+		let mut header = proposal.block.header.clone();
+		let prev_header = backend.blockchain().header(BlockId::Hash(genesis_hash)).unwrap().unwrap();
+		header.set_extrinsics_root(*prev_header.extrinsics_root());
+		api.execute_block(&block_id, <Block as BlockT>::new(header, vec![])).unwrap();
 
 		let state = backend.state_at(block_id).unwrap();
 		let changes_trie_state = backend::changes_tries_state_at_block(
@@ -624,7 +670,7 @@ mod tests {
 			// when
 			let deadline = time::Duration::from_secs(9);
 			let block = futures::executor::block_on(
-				proposer.propose(Default::default(), Default::default(), deadline, RecordProof::No)
+				proposer.propose(create_inherents(), Default::default(), deadline, RecordProof::No)
 			).map(|r| r.block).unwrap();
 
 			// then
@@ -645,7 +691,21 @@ mod tests {
 
 		// let's create one block and import it
 		let block = propose_block(&client, 0, 2, 7);
+        println!("{:?}", block.extrinsics());
+		let block_hash = block.header().hash();
 		client.import(BlockOrigin::Own, block).unwrap();
+
+		// push one extra block - extrinsics in the pool makred as 'exhausted_resources'
+		// to succeed needs to be executed as first in the processed block. Due to
+		// modifications in block_builder all extrinsics from previous block are applied
+		// beofre trying to validate extrinsics from the tx pool. Once we include empty
+		// block in between 'exhausted_resources' extrinsic from the pool is exeucted as
+		// the first one and the origin test logic is maintained
+		let block = client.new_block_at(&BlockId::Hash(block_hash), Default::default(), false)
+			.unwrap()
+			.build(Default::default())
+			.unwrap();
+		client.import(BlockOrigin::Own, block.block).unwrap();
 
 		futures::executor::block_on(
 			txpool.maintain(chain_event(
@@ -656,7 +716,8 @@ mod tests {
 		);
 
 		// now let's make sure that we can still make some progress
-		let block = propose_block(&client, 1, 2, 5);
+		let block = propose_block(&client, 2, 2, 5);
+        println!("{:?}", block.extrinsics());
 		client.import(BlockOrigin::Own, block).unwrap();
 	}
 }

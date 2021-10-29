@@ -169,6 +169,9 @@ pub enum Error {
 	// the storage `fn`s returns typed errors.
 	#[error("Storage error: {0}")]
 	Storage(String),
+
+	#[error("Cannot apply previous block extrinsics")]
+	CannotApplyPreviousBlock,
 }
 
 impl From<Box<dyn sp_state_machine::Error + Send + Sync + 'static>> for Error {

@@ -39,6 +39,7 @@ use futures::prelude::*;
 use parking_lot::Mutex;
 use log::{debug, info, trace};
 use prometheus_endpoint::Registry;
+use schnorrkel::{vrf::VRFOutput, vrf::VRFProof, SignatureError};
 
 use codec::{Encode, Decode, Codec};
 
@@ -55,7 +56,8 @@ use sp_blockchain::{
 	ProvideCache, HeaderBackend,
 };
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_core::crypto::Public;
+use sp_core::{ShufflingSeed, crypto::Public};
+use sp_keystore::vrf;
 use sp_application_crypto::{AppKey, AppPublic};
 use sp_runtime::{generic::{BlockId, OpaqueDigestItemId}, traits::NumberFor, Justification};
 use sp_runtime::traits::{Block as BlockT, Header, DigestItemFor, Zero, Member};
@@ -373,6 +375,14 @@ where
 			Some(slot_remaining)
 		}
 	}
+
+    fn keystore(&self) -> SyncCryptoStorePtr{
+        self.keystore.clone()
+    }
+
+    fn get_key(&self, claim: &Self::Claim) -> sp_core::sr25519::Public{
+        claim.as_slice().try_into().unwrap()
+    }
 }
 
 fn aura_err<B: BlockT>(error: Error<B>) -> Error<B> {
@@ -403,6 +413,8 @@ enum Error<B: BlockT> {
 	SlotMustIncrease(Slot, Slot),
 	#[display(fmt = "Parent ({}) of {} unavailable. Cannot import", _0, _1)]
 	ParentUnavailable(B::Hash, B::Hash),
+	#[display(fmt = "Invalid Shuffling Seed")]
+	InvalidSeed,
 }
 
 impl<B: BlockT> std::convert::From<Error<B>> for String {
@@ -432,6 +444,32 @@ fn find_pre_digest<B: BlockT, P: Pair>(header: &B::Header) -> Result<Slot, Error
 	pre_digest.ok_or_else(|| aura_err(Error::NoDigestFound))
 }
 
+/// calculates input that after signing will become next shuffling seed
+fn create_shuffling_seed_input_data(prev_seed: & ShufflingSeed) -> vrf::VRFTranscriptData {
+	vrf::VRFTranscriptData {
+		label: b"shuffling_seed",
+		items: vec![("prev_seed", vrf::VRFTranscriptValue::Bytes(prev_seed.seed.as_bytes().to_vec()))],
+	}
+}
+
+fn validate_seed_signature<Block: BlockT>(
+    prev_seed: &ShufflingSeed,
+    seed: &ShufflingSeed,
+    public_key: &[u8],
+) -> Result<(), Error<Block>> {
+    let output = VRFOutput::from_bytes(&seed.seed.as_bytes())
+        .map_err(|_| Error::InvalidSeed)?;
+    let proof = VRFProof::from_bytes(&seed.proof.as_bytes())
+        .map_err(|_| Error::InvalidSeed)?;
+    let input = vrf::make_transcript(create_shuffling_seed_input_data(&prev_seed));
+
+    schnorrkel::PublicKey::from_bytes(public_key)
+        .and_then(|p| p.vrf_verify(input, &output, &proof))
+        .map_err(|_| Error::<Block>::InvalidSeed)?;
+
+    Ok(())
+}
+
 /// check a header has been signed by the right key. If the slot is too far in the future, an error will be returned.
 /// if it's successful, returns the pre-header and the digest item containing the seal.
 ///
@@ -446,7 +484,7 @@ fn check_header<C, B: BlockT, P: Pair>(
 ) -> Result<CheckedHeader<B::Header, (Slot, DigestItemFor<B>)>, Error<B>> where
 	DigestItemFor<B>: CompatibleDigestItem<P>,
 	P::Signature: Decode,
-	C: sc_client_api::backend::AuxStore,
+	C: sc_client_api::backend::AuxStore + HeaderBackend<B>,
 	P::Public: Encode + Decode + PartialEq + Clone,
 {
 	let seal = match header.digest_mut().pop() {
@@ -472,6 +510,11 @@ fn check_header<C, B: BlockT, P: Pair>(
 		};
 
 		let pre_hash = header.hash();
+
+        let prev_header = client.header(BlockId::Hash(*header.parent_hash())).unwrap()
+            .ok_or_else(|| Error::<B>::InvalidSeed)?;
+        validate_seed_signature(prev_header.seed(), header.seed(), expected_author.as_ref())?;
+
 
 		if P::verify(&sig, pre_hash.as_ref(), expected_author) {
 			if let Some(equivocation_proof) = check_equivocation(
@@ -577,7 +620,8 @@ impl<B: BlockT, C, P, CAW> Verifier<B> for AuraVerifier<C, P, CAW> where
 		Sync +
 		sc_client_api::backend::AuxStore +
 		ProvideCache<B> +
-		BlockOf,
+		BlockOf+
+        HeaderBackend<B>,
 	C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId<P>> + ApiExt<B, Error = sp_blockchain::Error>,
 	DigestItemFor<B>: CompatibleDigestItem<P>,
 	P: Pair + Send + Sync + 'static,
@@ -922,7 +966,7 @@ mod tests {
 			_: Duration,
 			_: RecordProof,
 		) -> Self::Proposal {
-			let r = self.1.new_block(digests).unwrap().build().map_err(|e| e.into());
+			let r = self.1.new_block(digests).unwrap().build(Default::default()).map_err(|e| e.into());
 
 			future::ready(r.map(|b| Proposal {
 				block: b.block,
@@ -988,6 +1032,7 @@ mod tests {
 
 	#[test]
 	#[allow(deprecated)]
+	#[ignore]
 	fn authoring_blocks() {
 		sp_tracing::try_init_simple();
 		let net = AuraTestNet::new(3);

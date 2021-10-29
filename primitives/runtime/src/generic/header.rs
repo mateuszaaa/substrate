@@ -26,7 +26,7 @@ use crate::traits::{
 	MaybeMallocSizeOf,
 };
 use crate::generic::Digest;
-use sp_core::U256;
+use sp_core::{U256, ShufflingSeed};
 use sp_std::{
 	convert::TryFrom,
 	fmt::Debug,
@@ -51,6 +51,8 @@ pub struct Header<Number: Copy + Into<U256> + TryFrom<U256>, Hash: HashT> {
 	pub extrinsics_root: Hash::Output,
 	/// A chain-specific digest of data useful for light clients or referencing auxiliary data.
 	pub digest: Digest<Hash::Output>,
+	/// Previous block extrinsics shuffling seed
+	pub seed: ShufflingSeed,
 }
 
 #[cfg(feature = "std")]
@@ -65,7 +67,8 @@ where
 			self.number.size_of(ops) +
 			self.state_root.size_of(ops) +
 			self.extrinsics_root.size_of(ops) +
-			self.digest.size_of(ops)
+			self.digest.size_of(ops) +
+			self.seed.size_of(ops)
 	}
 }
 
@@ -97,6 +100,7 @@ impl<Number, Hash> Decode for Header<Number, Hash> where
 			state_root: Decode::decode(input)?,
 			extrinsics_root: Decode::decode(input)?,
 			digest: Decode::decode(input)?,
+			seed: Decode::decode(input)?,
 		})
 	}
 }
@@ -112,6 +116,7 @@ impl<Number, Hash> Encode for Header<Number, Hash> where
 		self.state_root.encode_to(dest);
 		self.extrinsics_root.encode_to(dest);
 		self.digest.encode_to(dest);
+		self.seed.encode_to(dest);
 	}
 }
 
@@ -153,6 +158,12 @@ impl<Number, Hash> traits::Header for Header<Number, Hash> where
 		&mut self.digest
 	}
 
+	fn seed(&self) -> &ShufflingSeed{ &self.seed }
+
+	fn set_seed(& mut self,seed: ShufflingSeed){
+	    self.seed = seed;
+	}
+
 	fn new(
 		number: Self::Number,
 		extrinsics_root: Self::Hash,
@@ -166,6 +177,7 @@ impl<Number, Hash> traits::Header for Header<Number, Hash> where
 			state_root,
 			parent_hash,
 			digest,
+            seed: Default::default(),
 		}
 	}
 }

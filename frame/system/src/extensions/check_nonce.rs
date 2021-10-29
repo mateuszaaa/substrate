@@ -32,7 +32,7 @@ use sp_std::vec;
 /// Note that this does not set any priority by default. Make sure that AT LEAST one of the signed
 /// extension sets some kind of priority upon validating transactions.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
-pub struct CheckNonce<T: Config>(#[codec(compact)] T::Index);
+pub struct CheckNonce<T: Config>(#[codec(compact)] pub T::Index);
 
 impl<T: Config> CheckNonce<T> {
 	/// utility constructor. Used only in client/factory code.
