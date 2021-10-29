@@ -1495,6 +1495,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "extrinsic-info-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "derive_more",
+ "futures 0.3.12",
+ "log",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
 name = "failure"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"

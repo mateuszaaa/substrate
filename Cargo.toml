@@ -142,6 +142,7 @@ members = [
 	"primitives/debug-derive",
 	"primitives/externalities",
 	"primitives/election-providers",
+	"primitives/extrinsic-info-runtime-api",
 	"primitives/finality-grandpa",
 	"primitives/inherents",
 	"primitives/io",
