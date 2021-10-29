@@ -68,6 +68,8 @@ mod hasher;
 pub mod offchain;
 pub mod sandbox;
 pub mod uint;
+mod seed;
+pub use seed::ShufflingSeed;
 mod changes_trie;
 #[cfg(feature = "std")]
 pub mod traits;

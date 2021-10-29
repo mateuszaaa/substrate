@@ -570,6 +570,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore]
 	fn should_not_remove_invalid_transactions_when_skipping() {
 		// given
 		let mut client = Arc::new(substrate_test_runtime_client::new());

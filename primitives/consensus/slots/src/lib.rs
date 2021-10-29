@@ -21,6 +21,13 @@
 
 use codec::{Decode, Encode};
 
+pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::VER;
+mod app {
+	use sp_application_crypto::{app_crypto, key_types::VER, sr25519};
+	app_crypto!(sr25519, VER);
+}
+
+
 /// Unit type wrapper that represents a slot.
 #[derive(Debug, Encode, Decode, Eq, Clone, Copy, Default, Ord)]
 pub struct Slot(u64);

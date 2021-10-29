@@ -41,8 +41,13 @@ use parking_lot::Mutex;
 use sp_api::{ProvideRuntimeApi, ApiRef};
 use sp_arithmetic::traits::BaseArithmetic;
 use sp_consensus::{BlockImport, Proposer, SyncOracle, SelectChain, CanAuthorWith, SlotData, RecordProof};
-use sp_consensus_slots::Slot;
+use sp_consensus_slots::{Slot, KEY_TYPE};
 use sp_inherents::{InherentData, InherentDataProviders};
+use sp_keystore::{vrf, SyncCryptoStorePtr, SyncCryptoStore};
+use sp_core::ShufflingSeed;
+use sp_ver::RandomSeedInherentDataProvider;
+use sp_inherents::ProvideInherentData;
+use sp_application_crypto::{sr25519, AppKey};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header, HashFor, NumberFor}
@@ -80,6 +85,40 @@ pub trait SlotWorker<B: BlockT> {
 	/// the slot. Otherwise `None` is returned.
 	fn on_slot(&mut self, chain_head: B::Header, slot_info: SlotInfo) -> Self::OnSlot;
 }
+
+fn create_shuffling_seed_input_data<'a>(prev_seed: &'a ShufflingSeed) -> vrf::VRFTranscriptData {
+	vrf::VRFTranscriptData {
+		label: b"shuffling_seed",
+		items: vec![("prev_seed", vrf::VRFTranscriptValue::Bytes(prev_seed.seed.as_bytes().iter().cloned().collect()))],
+	}
+}
+
+fn inject_inherents<'a>(
+	keystore: SyncCryptoStorePtr,
+	public: &'a sr25519::Public,
+	prev_seed: &'a ShufflingSeed,
+	slot_info: &'a mut SlotInfo,
+) -> Result<(), sp_consensus::Error> {
+	let transcript_data = create_shuffling_seed_input_data(&prev_seed);
+    let signature = SyncCryptoStore::sr25519_vrf_sign(&(*keystore), KEY_TYPE, public, transcript_data)
+		.map_err(|_| sp_consensus::Error::StateUnavailable(String::from("signing seed failure")))?;
+
+	// sp_ignore_tx::IgnoreTXInherentDataProvider(
+	// 	slot_info.number == (epoch.start_slot + epoch.duration - 1)
+	// )
+	// .provide_inherent_data(&mut slot_info.inherent_data)
+	// .map_err(|_| sp_consensus::Error::StateUnavailable(String::from("cannot inject RandomSeed inherent data")))?;
+
+	RandomSeedInherentDataProvider(ShufflingSeed {
+		seed: signature.output.to_bytes().into(),
+		proof: signature.proof.to_bytes().into(),
+	})
+	.provide_inherent_data(&mut slot_info.inherent_data)
+	.map_err(|_| sp_consensus::Error::StateUnavailable(String::from("cannot inject RandomSeed inherent data")))?;
+
+	Ok(())
+}
+
 
 /// A skeleton implementation for `SlotWorker` which tries to claim a slot at
 /// its beginning and tries to produce a block if successfully claimed, timing

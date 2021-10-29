@@ -28,6 +28,8 @@ sp-api = { version = "3.0.0", path = "../../../primitives/api" }
 sc-telemetry = { version = "3.0.0", path = "../../telemetry" }
 sp-consensus = { version = "0.9.0", path = "../../../primitives/consensus/common" }
 sp-inherents = { version = "3.0.0", path = "../../../primitives/inherents" }
+sp-keystore = { version = "0.9.0", path = "../../../primitives/keystore" }
+sp-ver = { version = "0.9.0", path = "../../../primitives/ver" }
 futures = "0.3.9"
 futures-timer = "3.0.1"
 parking_lot = "0.11.1"
