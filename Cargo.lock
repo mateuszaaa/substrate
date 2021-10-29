@@ -1496,7 +1496,7 @@ dependencies = [
 
 [[package]]
 name = "extrinsic-info-runtime-api"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "derive_more",
  "futures 0.3.12",
@@ -1506,6 +1506,21 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-runtime",
+]
+
+[[package]]
+name = "extrinsic-shuffler"
+version = "0.8.0"
+dependencies = [
+ "derive_more",
+ "extrinsic-info-runtime-api",
+ "log",
+ "sp-api",
+ "sp-block-builder",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+ "sp-ver",
 ]
 
 [[package]]
