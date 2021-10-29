@@ -145,6 +145,7 @@ members = [
 	"primitives/extrinsic-info-runtime-api",
 	"primitives/finality-grandpa",
 	"primitives/inherents",
+	"primitives/ignore-tx",
 	"primitives/io",
 	"primitives/keyring",
 	"primitives/keystore",

@@ -14,6 +14,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 
 [dependencies]
+log = "0.4.8"
 sp-state-machine = { version = "0.9.0", path = "../../primitives/state-machine" }
 sp-runtime = { version = "3.0.0", path = "../../primitives/runtime" }
 sp-api = { version = "3.0.0", path = "../../primitives/api" }
@@ -24,7 +25,21 @@ sp-block-builder = { version = "3.0.0", path = "../../primitives/block-builder" 
 sp-inherents = { version = "3.0.0", path = "../../primitives/inherents" }
 sc-client-api = { version = "3.0.0", path = "../api" }
 codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
+sp-std = { default-features = false, version = '3.0.0' , path = "../../primitives/std"}
+sp-transaction-pool = { version = "3.0.0", path = "../../primitives/transaction-pool"}
+extrinsic-info-runtime-api = { path='../../primitives/extrinsic-info-runtime-api', version='3.0.0' }
+extrinsic-shuffler = { path='../../primitives/shuffler', version='0.9.0' }
+sp-ver = { path='../../primitives/ver', version='0.9.0' }
+#sp-ignore-tx = { "version" = "2.0.0", path = "../../primitives/ignore-tx" }
+rand = "0.7.3"
 
 [dev-dependencies]
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 sp-trie = { version = "3.0.0", path = "../../primitives/trie" }
+
+
+[features]
+default = ['std']
+std = [
+    'sp-std/std',
+]
