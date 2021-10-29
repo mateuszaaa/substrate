@@ -6522,6 +6522,7 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-slots",
  "sp-core",
+ "sp-ignore-tx",
  "sp-inherents",
  "sp-keystore",
  "sp-runtime",

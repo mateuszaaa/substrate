@@ -103,11 +103,11 @@ fn inject_inherents<'a>(
     let signature = SyncCryptoStore::sr25519_vrf_sign(&(*keystore), KEY_TYPE, public, transcript_data)
 		.map_err(|_| sp_consensus::Error::StateUnavailable(String::from("signing seed failure")))?;
 
-	// sp_ignore_tx::IgnoreTXInherentDataProvider(
-	// 	slot_info.number == (epoch.start_slot + epoch.duration - 1)
-	// )
-	// .provide_inherent_data(&mut slot_info.inherent_data)
-	// .map_err(|_| sp_consensus::Error::StateUnavailable(String::from("cannot inject RandomSeed inherent data")))?;
+	sp_ignore_tx::IgnoreTXInherentDataProvider(
+		false
+	)
+	.provide_inherent_data(&mut slot_info.inherent_data)
+	.map_err(|_| sp_consensus::Error::StateUnavailable(String::from("cannot inject RandomSeed inherent data")))?;
 
 	RandomSeedInherentDataProvider(ShufflingSeed {
 		seed: signature.output.to_bytes().into(),
