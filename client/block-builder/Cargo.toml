@@ -30,7 +30,7 @@ sp-transaction-pool = { version = "3.0.0", path = "../../primitives/transaction-
 extrinsic-info-runtime-api = { path='../../primitives/extrinsic-info-runtime-api', version='3.0.0' }
 extrinsic-shuffler = { path='../../primitives/shuffler', version='0.9.0' }
 sp-ver = { path='../../primitives/ver', version='0.9.0' }
-#sp-ignore-tx = { "version" = "2.0.0", path = "../../primitives/ignore-tx" }
+sp-ignore-tx = { version = "3.0.0", path = "../../primitives/ignore-tx" }
 rand = "0.7.3"
 
 [dev-dependencies]

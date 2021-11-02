@@ -44,7 +44,7 @@ use sp_consensus::{BlockImport, Proposer, SyncOracle, SelectChain, CanAuthorWith
 use sp_consensus_slots::{Slot, KEY_TYPE};
 use sp_inherents::{InherentData, InherentDataProviders};
 use sp_keystore::{vrf, SyncCryptoStorePtr, SyncCryptoStore};
-use sp_core::ShufflingSeed;
+use sp_core::{ShufflingSeed, crypto::Public};
 use sp_ver::RandomSeedInherentDataProvider;
 use sp_inherents::ProvideInherentData;
 use sp_application_crypto::{sr25519, AppKey};
@@ -170,6 +170,9 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		epoch_data: &Self::EpochData,
 	) -> Option<Self::Claim>;
 
+    /// reads key required for signing shuffling seed
+    fn get_key(&self, claim: &Self::Claim) -> sr25519::Public;
+
 	/// Notifies the given slot. Similar to `claim_slot`, but will be called no matter whether we
 	/// need to author blocks or not.
 	fn notify_slot(
@@ -243,7 +246,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 	fn on_slot(
 		&mut self,
 		chain_head: B::Header,
-		slot_info: SlotInfo,
+		mut slot_info: SlotInfo,
 	) -> Pin<Box<dyn Future<Output = Option<SlotResult<B>>> + Send>>
 	where
 		<Self::Proposer as Proposer<B>>::Proposal: Unpin + Send + 'static,
@@ -254,9 +257,6 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		let slot_remaining_duration = self.slot_remaining_duration(&slot_info);
 		let proposing_remaining_duration = self.proposing_remaining_duration(&chain_head, &slot_info);
 
-        // let seed = chain_head;
-        //
-        // inject_inherents(keystore, , chain_head.seed(), );
 
 		let proposing_remaining = match proposing_remaining_duration {
 			Some(r) if r.as_secs() == 0 && r.as_nanos() == 0 => {
@@ -309,6 +309,11 @@ pub trait SimpleSlotWorker<B: BlockT> {
 			None => return Box::pin(future::ready(None)),
 			Some(claim) => claim,
 		};
+
+        
+        let key = self.get_key(&claim);
+        inject_inherents(keystore, &key , chain_head.seed(), & mut slot_info);
+
 
 		if self.should_backoff(slot, &chain_head) {
 			return Box::pin(future::ready(None));

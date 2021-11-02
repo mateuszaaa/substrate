@@ -6147,6 +6147,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
+ "sp-ignore-tx",
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
