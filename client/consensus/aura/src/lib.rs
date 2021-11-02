@@ -373,6 +373,10 @@ where
 			Some(slot_remaining)
 		}
 	}
+
+    fn keystore(&self) -> SyncCryptoStorePtr{
+        self.keystore.clone()
+    }
 }
 
 fn aura_err<B: BlockT>(error: Error<B>) -> Error<B> {

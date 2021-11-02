@@ -730,6 +730,11 @@ where
 			Some(slot_remaining)
 		}
 	}
+
+    /// keystore handle
+    fn keystore(&self) -> SyncCryptoStorePtr{
+        self.keystore.clone()
+    }
 }
 
 /// Extract the BABE pre digest from the given header. Pre-runtime digests are

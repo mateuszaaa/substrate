@@ -248,10 +248,15 @@ pub trait SimpleSlotWorker<B: BlockT> {
 	where
 		<Self::Proposer as Proposer<B>>::Proposal: Unpin + Send + 'static,
 	{
+        let keystore = self.keystore().clone();
 		let (timestamp, slot) = (slot_info.timestamp, slot_info.slot);
 
 		let slot_remaining_duration = self.slot_remaining_duration(&slot_info);
 		let proposing_remaining_duration = self.proposing_remaining_duration(&chain_head, &slot_info);
+
+        // let seed = chain_head;
+        //
+        // inject_inherents(keystore, , chain_head.seed(), );
 
 		let proposing_remaining = match proposing_remaining_duration {
 			Some(r) if r.as_secs() == 0 && r.as_nanos() == 0 => {
@@ -419,6 +424,9 @@ pub trait SimpleSlotWorker<B: BlockT> {
 			r.map_err(|e| warn!(target: "slots", "Encountered consensus error: {:?}", e)).ok()
 		}).boxed()
 	}
+
+    /// keystore handle
+    fn keystore(&self) -> SyncCryptoStorePtr;
 }
 
 impl<B: BlockT, T: SimpleSlotWorker<B>> SlotWorker<B> for T {
