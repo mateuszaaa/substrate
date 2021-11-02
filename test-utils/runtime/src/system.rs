@@ -238,6 +238,7 @@ pub fn finalize_block() -> Header {
 		state_root: storage_root,
 		parent_hash,
 		digest,
+        seed: Default::default(),
 	}
 }
 
@@ -394,6 +395,7 @@ mod tests {
 			state_root: Default::default(),
 			extrinsics_root: Default::default(),
 			digest: Default::default(),
+            seed: Default::default(),
 		};
 		let mut b = Block {
 			header: h,
@@ -441,6 +443,7 @@ mod tests {
 				state_root: Default::default(),
 				extrinsics_root: Default::default(),
 				digest: Default::default(),
+                seed: Default::default(),
 			},
 			extrinsics: vec![
 				Transfer {
@@ -462,6 +465,7 @@ mod tests {
 				state_root: Default::default(),
 				extrinsics_root: Default::default(),
 				digest: Default::default(),
+                seed: Default::default(),
 			},
 			extrinsics: vec![
 				Transfer {
