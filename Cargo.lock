@@ -6111,6 +6111,7 @@ dependencies = [
 name = "sc-basic-authorship"
 version = "0.9.0"
 dependencies = [
+ "extrinsic-info-runtime-api",
  "futures 0.3.12",
  "futures-timer 3.0.2",
  "log",
@@ -7019,6 +7020,7 @@ dependencies = [
  "async-std",
  "directories",
  "exit-future",
+ "extrinsic-info-runtime-api",
  "futures 0.1.30",
  "futures 0.3.12",
  "futures-timer 3.0.2",
@@ -8685,6 +8687,7 @@ name = "substrate-test-runtime"
 version = "2.0.0"
 dependencies = [
  "cfg-if 1.0.0",
+ "extrinsic-info-runtime-api",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -8718,6 +8721,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-trie",
+ "sp-ver",
  "sp-version",
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
@@ -8728,6 +8732,7 @@ dependencies = [
 name = "substrate-test-runtime-client"
 version = "2.0.0"
 dependencies = [
+ "extrinsic-info-runtime-api",
  "futures 0.3.12",
  "parity-scale-codec",
  "sc-block-builder",

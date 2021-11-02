@@ -22,6 +22,7 @@
 
 use std::{pin::Pin, time, sync::Arc};
 use sc_client_api::backend;
+use extrinsic_info_runtime_api::runtime_api::ExtrinsicInfoRuntimeApi;
 use codec::Decode;
 use sp_consensus::{evaluation, Proposal, RecordProof};
 use sp_core::traits::SpawnNamed;
@@ -138,7 +139,8 @@ impl<A, B, Block, C> sp_consensus::Environment<Block> for
 			C: BlockBuilderProvider<B, Block, C> + HeaderBackend<Block> + ProvideRuntimeApi<Block>
 				+ Send + Sync + 'static,
 			C::Api: ApiExt<Block, StateBackend = backend::StateBackendFor<B, Block>>
-				+ BlockBuilderApi<Block, Error = sp_blockchain::Error>,
+				+ BlockBuilderApi<Block, Error = sp_blockchain::Error>
+				+ ExtrinsicInfoRuntimeApi<Block>,
 {
 	type CreateProposer = future::Ready<Result<Self::Proposer, Self::Error>>;
 	type Proposer = Proposer<B, Block, C, A>;
@@ -175,7 +177,8 @@ impl<A, B, Block, C> sp_consensus::Proposer<Block> for
 			C: BlockBuilderProvider<B, Block, C> + HeaderBackend<Block> + ProvideRuntimeApi<Block>
 				+ Send + Sync + 'static,
 			C::Api: ApiExt<Block, StateBackend = backend::StateBackendFor<B, Block>>
-				+ BlockBuilderApi<Block, Error = sp_blockchain::Error>,
+				+ BlockBuilderApi<Block, Error = sp_blockchain::Error>
+				+ ExtrinsicInfoRuntimeApi<Block>,
 {
 	type Transaction = backend::TransactionFor<B, Block>;
 	type Proposal = Pin<Box<dyn Future<
@@ -221,7 +224,8 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 		C: BlockBuilderProvider<B, Block, C> + HeaderBackend<Block> + ProvideRuntimeApi<Block>
 			+ Send + Sync + 'static,
 		C::Api: ApiExt<Block, StateBackend = backend::StateBackendFor<B, Block>>
-			+ BlockBuilderApi<Block, Error = sp_blockchain::Error>,
+			+ BlockBuilderApi<Block, Error = sp_blockchain::Error>
+			+ ExtrinsicInfoRuntimeApi<Block>,
 {
 	async fn propose_with(
 		self,
@@ -241,7 +245,8 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 			record_proof,
 		)?;
 
-		for inherent in block_builder.create_inherents(inherent_data)? {
+		let (seed, inherents) = block_builder.create_inherents(inherent_data.clone())?;
+		for inherent in inherents {
 			match block_builder.push(inherent) {
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() =>
 					warn!("⚠️  Dropping non-mandatory inherent from overweight block."),
@@ -323,7 +328,7 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 
 		self.transaction_pool.remove_invalid(&unqueue_invalid);
 
-		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
+		let (block, storage_changes, proof) = block_builder.build(seed)?.into_inner();
 
 		self.metrics.report(
 			|metrics| {

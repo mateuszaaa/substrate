@@ -67,6 +67,7 @@ use sp_api::{
 	CallApiAtParams,
 };
 use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+use extrinsic_info_runtime_api::runtime_api::ExtrinsicInfoRuntimeApi;
 use sc_client_api::{
 	backend::{
 		self, BlockImportOperation, PrunableStateChangesTrieStorage,
@@ -838,8 +839,9 @@ impl<B, E, Block, RA> Client<B, E, Block, RA> where
 	) -> sp_blockchain::Result<Option<ImportResult>>
 		where
 			Self: ProvideRuntimeApi<Block>,
-			<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block, Error = Error> +
-				ApiExt<Block, StateBackend = B::State>,
+			<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block, Error = Error>
+			+ ApiExt<Block, StateBackend = B::State>
+			+ ExtrinsicInfoRuntimeApi<Block>,
 	{
 		let parent_hash = import_block.header.parent_hash();
 		let at = BlockId::Hash(*parent_hash);
@@ -1272,7 +1274,8 @@ impl<B, E, Block, RA> BlockBuilderProvider<B, Block, Self> for Client<B, E, Bloc
 		Block: BlockT,
 		Self: ChainHeaderBackend<Block> + ProvideRuntimeApi<Block>,
 		<Self as ProvideRuntimeApi<Block>>::Api: ApiExt<Block, StateBackend = backend::StateBackendFor<B, Block>>
-			+ BlockBuilderApi<Block, Error = Error>,
+			+ BlockBuilderApi<Block, Error = Error>
+			+ ExtrinsicInfoRuntimeApi<Block>,
 {
 	fn new_block_at<R: Into<RecordProof>>(
 		&self,
@@ -1676,8 +1679,9 @@ impl<B, E, Block, RA> sp_consensus::BlockImport<Block> for &Client<B, E, Block, 
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
 	Client<B, E, Block, RA>: ProvideRuntimeApi<Block>,
-	<Client<B, E, Block, RA> as ProvideRuntimeApi<Block>>::Api: CoreApi<Block, Error = Error> +
-		ApiExt<Block, StateBackend = B::State>,
+	<Client<B, E, Block, RA> as ProvideRuntimeApi<Block>>::Api: CoreApi<Block, Error = Error>
+		+ ApiExt<Block, StateBackend = B::State>
+		+ ExtrinsicInfoRuntimeApi<Block>,
 {
 	type Error = ConsensusError;
 	type Transaction = backend::TransactionFor<B, Block>;
@@ -1776,8 +1780,9 @@ impl<B, E, Block, RA> sp_consensus::BlockImport<Block> for Client<B, E, Block, R
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
 	Self: ProvideRuntimeApi<Block>,
-	<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block, Error = Error> +
-		ApiExt<Block, StateBackend = B::State>,
+	<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block, Error = Error>
+		+ ApiExt<Block, StateBackend = B::State>
+		+ ExtrinsicInfoRuntimeApi<Block>,
 {
 	type Error = ConsensusError;
 	type Transaction = backend::TransactionFor<B, Block>;
