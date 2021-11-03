@@ -22,6 +22,8 @@ sp-tracing = { version = "3.0.0", default-features = false, path = "../../primit
 sp-std = { version = "3.0.0", default-features = false, path = "../../primitives/std" }
 sp-io = { version = "3.0.0", default-features = false, path = "../../primitives/io" }
 sp-core = { version = "3.0.0", default-features = false, path = "../../primitives/core" }
+sp-ver = { version = "0.9.0", path = '../../primitives/ver', default-features = false }
+extrinsic-shuffler = { version='0.9.0', path = '../../primitives/shuffler', default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.3.1"

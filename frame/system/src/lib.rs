@@ -75,7 +75,7 @@ use sp_version::RuntimeVersion;
 use sp_runtime::{
 	RuntimeDebug, Perbill, DispatchError, Either, generic,
 	traits::{
-		self, CheckEqual, AtLeast32Bit, Zero, Lookup, LookupError,
+		self, CheckEqual, AtLeast32Bit, Zero, Lookup, LookupError, Header,
 		SimpleBitOps, Hash, Member, MaybeDisplay, BadOrigin,
 		MaybeSerializeDeserialize, MaybeMallocSizeOf, StaticLookup, One, Bounded,
 		Dispatchable, AtLeast32BitUnsigned, Saturating, StoredMapError,
@@ -83,7 +83,7 @@ use sp_runtime::{
 	offchain::storage_lock::BlockNumberProvider,
 };
 
-use sp_core::{ChangesTrieConfiguration, storage::well_known_keys};
+use sp_core::{ChangesTrieConfiguration, storage::well_known_keys, H256, H512, ShufflingSeed};
 use frame_support::{
 	Parameter, debug, storage,
 	traits::{
@@ -540,6 +540,16 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn parent_hash)]
 	pub(super) type ParentHash<T: Config> = StorageValue<_, T::Hash, ValueQuery>;
+
+    // seed
+	#[pallet::storage]
+	#[pallet::getter(fn seed)]
+	pub(super) type Seed<T: Config> = StorageValue<_, H256, ValueQuery>;
+
+    // seed proof
+	#[pallet::storage]
+	#[pallet::getter(fn seed_proof)]
+	pub(super) type SeedProof<T: Config> = StorageValue<_, H512, ValueQuery>;
 
 	/// Digest of the current block, also part of the block header.
 	#[pallet::storage]
@@ -1190,6 +1200,7 @@ impl<T: Config> Module<T> {
 		parent_hash: &T::Hash,
 		digest: &DigestOf<T>,
 		kind: InitKind,
+		seed: &ShufflingSeed,
 	) {
 		// populate environment
 		ExecutionPhase::<T>::put(Phase::Initialization);
@@ -1198,6 +1209,8 @@ impl<T: Config> Module<T> {
 		<Digest<T>>::put(digest);
 		<ParentHash<T>>::put(parent_hash);
 		<BlockHash<T>>::insert(*number - One::one(), parent_hash);
+		<Seed<T>>::put(seed.seed);
+		<SeedProof<T>>::put(seed.proof);
 
 		// Remove previous block data from storage
 		BlockWeight::<T>::kill();
@@ -1229,6 +1242,8 @@ impl<T: Config> Module<T> {
 		let number = <Number<T>>::get();
 		let parent_hash = <ParentHash<T>>::get();
 		let mut digest = <Digest<T>>::get();
+		let seed = <Seed<T>>::take();
+		let proof = <SeedProof<T>>::take();
 
 		let extrinsics = (0..ExtrinsicCount::<T>::take().unwrap_or_default())
 			.map(ExtrinsicData::<T>::take)
@@ -1258,7 +1273,9 @@ impl<T: Config> Module<T> {
 			digest.push(item);
 		}
 
-		<T::Header as traits::Header>::new(number, extrinsics_root, storage_root, parent_hash, digest)
+		let mut header = <T::Header as traits::Header>::new(number, extrinsics_root, storage_root, parent_hash, digest);
+        header.set_seed(ShufflingSeed{seed , proof});
+        header
 	}
 
 	/// Deposits a log and ensures it matches the block's log data.

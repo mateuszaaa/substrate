@@ -1700,6 +1700,7 @@ dependencies = [
 name = "frame-executive"
 version = "3.0.0"
 dependencies = [
+ "extrinsic-shuffler",
  "frame-support",
  "frame-system",
  "hex-literal",
@@ -1713,6 +1714,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-tracing",
+ "sp-ver",
  "sp-version",
 ]
 

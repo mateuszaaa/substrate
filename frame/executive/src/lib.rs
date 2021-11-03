@@ -122,6 +122,7 @@ use frame_support::{
 	dispatch::PostDispatchInfo,
 };
 use sp_runtime::{
+    AccountId32,
 	generic::Digest, ApplyExtrinsicResult,
 	traits::{
 		self, Header, Zero, One, Checkable, Applyable, CheckEqual, ValidateUnsigned, NumberFor,
@@ -130,12 +131,11 @@ use sp_runtime::{
 	transaction_validity::{TransactionValidity, TransactionSource},
 };
 use codec::{Codec, Encode};
-use frame_system::DigestOf;
-
+use frame_system::{extrinsics_root, DigestOf};
 /// Trait that can be used to execute a block.
 pub trait ExecuteBlock<Block: BlockT> {
 	/// Actually execute all transitions for `block`.
-	fn execute_block(block: Block);
+	fn execute_block(block: Block, info: Vec<Option<AccountId32>>);
 }
 
 pub type CheckedOf<E, C> = <E as Checkable<C>>::Checked;
@@ -179,8 +179,11 @@ where
 	OriginOf<Block::Extrinsic, Context>: From<Option<System::AccountId>>,
 	UnsignedValidator: ValidateUnsigned<Call=CallOf<Block::Extrinsic, Context>>,
 {
-	fn execute_block(block: Block) {
-		Executive::<System, Block, Context, UnsignedValidator, AllModules>::execute_block(block);
+	
+	fn execute_block(block: Block, info: Vec<Option<AccountId32>>) {
+		Executive::<System, Block, Context, UnsignedValidator, AllModules>::execute_block(
+			block, info,
+		);
 	}
 }
 
@@ -213,7 +216,8 @@ where
 		Self::initialize_block_impl(
 			header.number(),
 			header.parent_hash(),
-			&digests
+			&digests,
+            header.seed(),
 		);
 	}
 
@@ -231,6 +235,7 @@ where
 		block_number: &System::BlockNumber,
 		parent_hash: &System::Hash,
 		digest: &Digest<System::Hash>,
+		seed: &sp_core::ShufflingSeed,
 	) {
 		let mut weight = 0;
 		if Self::runtime_upgraded() {
@@ -244,6 +249,7 @@ where
 			parent_hash,
 			digest,
 			frame_system::InitKind::Full,
+            seed,
 		);
 		weight = weight.saturating_add(
 			<frame_system::Module<System> as OnInitialize<System::BlockNumber>>::on_initialize(*block_number)
@@ -288,7 +294,7 @@ where
 	}
 
 	/// Actually execute all transitions for `block`.
-	pub fn execute_block(block: Block) {
+	pub fn execute_block(block: Block, info: Vec<Option<AccountId32>>) {
 		sp_io::init_tracing();
 		sp_tracing::within_span! {
 			sp_tracing::info_span!( "execute_block", ?block);
@@ -302,7 +308,10 @@ where
 
 			// execute extrinsics
 			let (header, extrinsics) = block.deconstruct();
-			Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number());
+
+			let extrinsics_with_author: Vec<(Option<_>,_)> = info.into_iter().zip(extrinsics.into_iter()).collect();
+			let shuffled_extrinsics = extrinsic_shuffler::shuffle_using_seed::<Block::Extrinsic>(extrinsics_with_author, &header.seed().seed);
+			Self::execute_extrinsics_with_book_keeping(shuffled_extrinsics, *header.number());
 
 			if !signature_batching.verify() {
 				panic!("Signature verification failed.");
@@ -454,6 +463,7 @@ where
 			header.parent_hash(),
 			&digests,
 			frame_system::InitKind::Inspection,
+            header.seed(),
 		);
 
 		// Frame system only inserts the parent hash into the block hashes as normally we don't know
