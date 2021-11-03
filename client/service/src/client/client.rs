@@ -867,11 +867,25 @@ impl<B, E, Block, RA> Client<B, E, Block, RA> where
 					ExecutionContext::Importing
 				};
 
-				runtime_api.execute_block_with_context(
-					&at,
-					execution_context,
-					Block::new(import_block.header.clone(), body.clone()),
-				)?;
+				match self.backend.blockchain().body(BlockId::Hash(*parent_hash)).unwrap() {
+					Some(previous_block_extrinsics) => {
+						//TODO include serialize/deserialize seed field in header
+						//and use received seed instead
+						let prev_header = self.backend.blockchain().header(BlockId::Hash(*parent_hash)).unwrap().unwrap();
+						let mut header = import_block.header.clone();
+						header.set_extrinsics_root(*prev_header.extrinsics_root());
+						let block = Block::new(header.clone(), previous_block_extrinsics);
+
+						runtime_api.execute_block_with_context(
+							&at,
+							execution_context,
+							block,
+						)?;
+					}
+					None => {
+						info!("previous block is empty");
+					}
+				}
 
 				let state = self.backend.state_at(at)?;
 				let changes_trie_state = changes_tries_state_at_block(
@@ -892,7 +906,7 @@ impl<B, E, Block, RA> Client<B, E, Block, RA> where
 				} else {
 					**storage_changes = Some(gen_storage_changes);
 				}
-			},
+			}
 			// No block body, no storage changes
 			(true, None, None) => {},
 			// We should not enact the state, so we set the storage changes to `None`.

@@ -26,6 +26,7 @@ use extrinsic_info_runtime_api::runtime_api::ExtrinsicInfoRuntimeApi;
 use codec::Decode;
 use sp_consensus::{evaluation, Proposal, RecordProof};
 use sp_core::traits::SpawnNamed;
+use sp_core::ExecutionContext;
 use sp_inherents::InherentData;
 use log::{error, info, debug, trace, warn};
 use sp_runtime::{
@@ -35,11 +36,13 @@ use sp_runtime::{
 use sp_transaction_pool::{TransactionPool, InPoolTransaction};
 use sc_telemetry::{telemetry, CONSENSUS_INFO};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
-use sp_api::{ProvideRuntimeApi, ApiExt};
+use sp_api::{ProvideRuntimeApi, ApiExt, TransactionOutcome};
 use futures::{future, future::{Future, FutureExt}, channel::oneshot, select};
 use sp_blockchain::{HeaderBackend, ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed};
 use std::marker::PhantomData;
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_proposer_metrics::MetricsLink as PrometheusMetrics;
 
@@ -265,6 +268,10 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 		let block_timer = time::Instant::now();
 		let mut skipped = 0;
 		let mut unqueue_invalid = Vec::new();
+		// let invalid = unqueue_invalid.clone();
+        //
+        block_builder.apply_previous_block(seed.clone());
+
 
 		let mut t1 = self.transaction_pool.ready_at(self.parent_number).fuse();
 		let mut t2 = futures_timer::Delay::new(deadline.saturating_duration_since((self.now)()) / 8).fuse();

@@ -160,76 +160,30 @@ where
 	///
 	/// This will ensure the extrinsic can be validly executed (by executing it).
 	pub fn push(&mut self, xt: <Block as BlockT>::Extrinsic) -> Result<(), ApiErrorFor<A, Block>> {
-		self.extrinsics.push(xt);
-		Ok(())
-	}
-
-	/// Fetches previous block extrinsics, temporary applies them and then try
-	/// to applies incomming transactions in order to prevalidate them
-	///
-	pub fn consume_valid_transactions(
-		&mut self,
-		transaction_provider: Box<
-			dyn FnOnce(
-				&BlockId<Block>,
-				&<A as ProvideRuntimeApi<Block>>::Api,
-			) -> Vec<Block::Extrinsic>,
-		>,
-		inherent_data: sp_inherents::InherentData,
-	) -> Result<(), ApiErrorFor<A, Block>> {
-		let is_next_block_epoch = sp_ignore_tx::extract_inherent_data(&inherent_data)
-			.map_err(|_| sp_blockchain::Error::Backend(String::from("cannot fetch information about ignore_tx flag")))?;
-
-		if is_next_block_epoch {
-			log::debug!(target: "block_builder", "the next block is new epoch - no transactions will be included");
-			return Ok(());
-		}
-
-		let parent_hash = self.parent_hash;
 		let block_id = &self.block_id;
-		let previous_block_extrinsics = self
-			.backend
-			.blockchain()
-			.body(BlockId::Hash(parent_hash))?
-			.unwrap_or_default();
+		let extrinsics = &mut self.extrinsics;
 
-		let valid_extrinsics = self.api.execute_in_transaction(|api| {
-			for tx in previous_block_extrinsics {
-				// TODO return error
-				match api.apply_extrinsic_with_context(
-					block_id,
-					ExecutionContext::BlockConstruction,
-					tx.clone(),
-				) {
-					Ok(Ok(_)) => {}
-					Ok(Err(tx_validity)) => {
-						return TransactionOutcome::Rollback(
-							Err(ApplyExtrinsicFailed::Validity(tx_validity).into())
-						);
-					},
-					Err(e) => {
-						return TransactionOutcome::Rollback(Err(e));
-					}
+		self.api.execute_in_transaction(|api| {
+			match api.apply_extrinsic_with_context(
+				block_id,
+				ExecutionContext::BlockConstruction,
+				xt.clone(),
+			) {
+				Ok(Ok(_)) => {
+					extrinsics.push(xt);
+					TransactionOutcome::Rollback(Ok(()))
 				}
+				Ok(Err(tx_validity)) => {
+					TransactionOutcome::Rollback(
+						Err(ApplyExtrinsicFailed::Validity(tx_validity).into()),
+					)
+				},
+				Err(e) => TransactionOutcome::Rollback(Err(e)),
 			}
-			TransactionOutcome::Rollback(Ok(transaction_provider(block_id, api)))
-		});
-
-		for xt in valid_extrinsics?.into_iter() {
-			self.extrinsics.push(xt);
-		}
-		Ok(())
+		})
 	}
 
-	/// Consume the builder to build a valid `Block` containing all pushed extrinsics.
-	///
-	/// Returns the build `Block`, the changes to the storage and an optional `StorageProof`
-	/// supplied by `self.api`, combined as [`BuiltBlock`].
-	/// The storage proof will be `Some(_)` when proof recording was enabled.
-	pub fn build(
-		mut self,
-		seed: ShufflingSeed,
-	) -> Result<BuiltBlock<Block, backend::StateBackendFor<B, Block>>, ApiErrorFor<A, Block>> {
+    pub fn apply_previous_block(&mut self, seed: ShufflingSeed){
 		let parent_hash = self.parent_hash;
 		let block_id = &self.block_id;
 
@@ -270,7 +224,20 @@ where
 			None => {
 				info!("No extrinsics found for previous block");
 			}
-		};
+        }
+    }
+
+	/// Consume the builder to build a valid `Block` containing all pushed extrinsics.
+	///
+	/// Returns the build `Block`, the changes to the storage and an optional `StorageProof`
+	/// supplied by `self.api`, combined as [`BuiltBlock`].
+	/// The storage proof will be `Some(_)` when proof recording was enabled.
+	pub fn build(
+		mut self,
+		seed: ShufflingSeed,
+	) -> Result<BuiltBlock<Block, backend::StateBackendFor<B, Block>>, ApiErrorFor<A, Block>> {
+		let parent_hash = self.parent_hash;
+		let block_id = &self.block_id;
 
 		let mut header = self
 			.api
