@@ -7,8 +7,6 @@ use sp_runtime::AccountId32;
 pub struct ExtrinsicInfo {
 	/// extrinsic signer
 	pub who: AccountId32,
-	/// nonce
-	pub nonce: u32,
 }
 
 sp_api::decl_runtime_apis! {
