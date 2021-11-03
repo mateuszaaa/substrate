@@ -515,6 +515,7 @@ mod tests {
 				extrinsics_root: Hash::random(),
 				state_root: Default::default(),
 				digest: Default::default(),
+                seed: Default::default(),
 			};
 
 			let hash = header.hash();
