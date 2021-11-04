@@ -21,7 +21,8 @@
 
 use codec::{Decode, Encode};
 
-pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::VER;
+//TODO use VER key instead
+pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::AURA;
 mod app {
 	use sp_application_crypto::{app_crypto, key_types::VER, sr25519};
 	app_crypto!(sr25519, VER);
