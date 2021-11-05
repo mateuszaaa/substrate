@@ -41,11 +41,13 @@ use sp_api::{
 	TransactionOutcome,
 };
 use sp_consensus::RecordProof;
+use sp_std::sync::Arc;
 
 use extrinsic_info_runtime_api::runtime_api::ExtrinsicInfoRuntimeApi;
 pub use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::Backend;
 use sc_client_api::backend;
+use sp_transaction_pool::InPoolTransaction;
 
 /// A block that was build by [`BlockBuilder`] plus some additional data.
 ///
@@ -156,10 +158,35 @@ where
 		})
 	}
 
+
 	/// Push onto the block's list of extrinsics.
 	///
 	/// This will ensure the extrinsic can be validly executed (by executing it).
 	pub fn push(&mut self, xt: <Block as BlockT>::Extrinsic) -> Result<(), ApiErrorFor<A, Block>> {
+		let block_id = &self.block_id;
+		let extrinsics = &mut self.extrinsics;
+
+		self.api.execute_in_transaction(|api| {
+			match api.apply_extrinsic_with_context(
+				block_id,
+				ExecutionContext::BlockConstruction,
+				xt.clone(),
+			) {
+				Ok(Ok(_)) => {
+					extrinsics.push(xt);
+					TransactionOutcome::Commit(Ok(()))
+				}
+				Ok(Err(tx_validity)) => {
+					TransactionOutcome::Rollback(
+						Err(ApplyExtrinsicFailed::Validity(tx_validity).into()),
+					)
+				},
+				Err(e) => TransactionOutcome::Rollback(Err(e)),
+			}
+		})
+	}
+
+	pub fn record_inherent(&mut self, xt: <Block as BlockT>::Extrinsic) -> Result<(), ApiErrorFor<A, Block>>  {
 		let block_id = &self.block_id;
 		let extrinsics = &mut self.extrinsics;
 
@@ -182,6 +209,147 @@ where
 			}
 		})
 	}
+
+	pub fn foo<T: sp_transaction_pool::TransactionPool<Block = Block>>(
+		&mut self,
+        pending_iterator : Box<dyn Iterator<Item = Arc<<T as sp_transaction_pool::TransactionPool>::InPoolTransaction>> + std::marker::Send>,
+        seed: ShufflingSeed
+	) -> Result<(), ApiErrorFor<A, Block>> {
+
+        self.apply_previous_block(seed.clone());
+        let at = &self.block_id;
+
+		self.api.execute_in_transaction(|api| {
+            self.api.execute_in_transaction(|api| {
+                for pending_tx in pending_iterator{
+                    let pending_tx_data = pending_tx.data().clone();
+                    let pending_tx_hash = pending_tx.hash().clone();
+
+						// match api.apply_extrinsic_with_context(
+						// 	at,
+						// 	ExecutionContext::BlockConstruction,
+						// 	pending_tx_data.clone(),
+						// ) {
+						// 	Ok(Ok(_)) => TransactionOutcome::Commit(Ok(())),
+						// 	Ok(Err(tx_validity)) => TransactionOutcome::Rollback(Err(Validity(tx_validity).into())),
+						// 	Err(e) => TransactionOutcome::Rollback(Err(e)),
+						// }
+
+                }
+                TransactionOutcome::Rollback(())
+            });
+            TransactionOutcome::Rollback(())
+        });
+
+				// let mut extrinsics: Vec<_> = Vec::new();
+				// for p in pending_iterator {
+				// 	let pending_tx_data = p.data().clone();
+				// 	let pending_tx_hash = p.hash().clone();
+				// 	let execution_status = api.execute_in_transaction(|_| {
+				// 		match api.apply_extrinsic_with_context(
+				// 			at,
+				// 			ExecutionContext::BlockConstruction,
+				// 			pending_tx_data.clone(),
+				// 		) {
+				// 			Ok(Ok(_)) => TransactionOutcome::Commit(Ok(())),
+				// 			Ok(Err(tx_validity)) => TransactionOutcome::Rollback(Err(Validity(tx_validity).into())),
+				// 			Err(e) => TransactionOutcome::Rollback(Err(e)),
+				// 		}
+				// 	});
+                //
+				// 	match execution_status {
+				// 		Ok(()) => {
+				// 			extrinsics.push(pending_tx_data);
+				// 			debug!("[{:?}] Pushed to the block.", pending_tx_hash);
+				// 		}
+				// 		Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
+				// 			if skipped < MAX_SKIPPED_TRANSACTIONS {
+				// 				skipped += 1;
+				// 				debug!(
+				// 					"Block seems full, but will try {} more transactions before quitting.",
+				// 					MAX_SKIPPED_TRANSACTIONS - skipped,
+				// 				);
+				// 			} else {
+				// 				debug!("Block is full, proceed with proposing.");
+				// 				break;
+				// 			}
+				// 		}
+				// 		Err(e) if skipped > 0 => {
+				// 			trace!(
+				// 				"[{:?}] Ignoring invalid transaction when skipping: {}",
+				// 				pending_tx_hash,
+				// 				e
+				// 			);
+				// 		}
+				// 		Err(e) => {
+				// 			debug!("[{:?}] Invalid transaction: {}", pending_tx_hash, e);
+				// 			invalid.borrow_mut().push(pending_tx_hash);
+				// 		}
+				// 	};
+				// }
+				// extrinsics
+
+		Ok(())
+	}
+
+    //
+	// pub fn consume_valid_transactions(
+	// 	&mut self,
+	// 	transaction_provider: Box<
+	// 		dyn FnOnce(
+	// 			&BlockId<Block>,
+	// 			&<A as ProvideRuntimeApi<Block>>::Api,
+	// 		) -> Vec<Block::Extrinsic>,
+	// 	>,
+	// 	inherent_data: sp_inherents::InherentData,
+	// ) -> Result<(), ApiErrorFor<A, Block>> {
+	// 	// let is_next_block_epoch = sp_ignore_tx::extract_inherent_data(&inherent_data).unwrap()
+	// 	// 	.map_err(|_| String::from("cannot fetch information about ignore_tx flag"))?;
+    //     //
+	// 	// if is_next_block_epoch {
+	// 	// 	log::debug!(target: "block_builder", "the next block is new epoch - no transactions will be included");
+	// 	// 	return Ok(());
+	// 	// }
+    //
+	// 	let parent_hash = self.parent_hash;
+	// 	let block_id = &self.block_id;
+	// 	let previous_block_extrinsics = self
+	// 		.backend
+	// 		.blockchain()
+	// 		.body(BlockId::Hash(parent_hash))?
+	// 		.unwrap_or_default();
+    //
+	// 	let valid_extrinsics = self.api.execute_in_transaction(|api| {
+	// 		for tx in previous_block_extrinsics {
+	// 			// TODO return error
+	// 			match api.apply_extrinsic_with_context(
+	// 				block_id,
+	// 				ExecutionContext::BlockConstruction,
+	// 				tx.clone(),
+	// 			) {
+	// 				Ok(Ok(_)) => {}
+	// 				Ok(Err(validity)) => {
+	// 					return TransactionOutcome::Rollback(Err(format!(
+	// 						"cannot apply previous block extrinsics - {:?}",
+	// 						validity
+	// 					)))
+	// 				}
+	// 				Err(e) => {
+	// 					return TransactionOutcome::Rollback(Err(format!(
+	// 						"cannot apply previous block extrinsics - {}",
+	// 						e
+	// 					)))
+	// 				}
+	// 			}
+	// 		}
+	// 		TransactionOutcome::Rollback(Ok(transaction_provider(block_id, api)))
+	// 	});
+    //
+	// 	for xt in valid_extrinsics.unwrap().into_iter() {
+	// 		self.extrinsics.push(xt);
+	// 	}
+	// 	Ok(())
+	// }
 
     pub fn apply_previous_block(&mut self, seed: ShufflingSeed){
 		let parent_hash = self.parent_hash;
@@ -236,20 +404,9 @@ where
 		mut self,
 		seed: ShufflingSeed,
 	) -> Result<BuiltBlock<Block, backend::StateBackendFor<B, Block>>, ApiErrorFor<A, Block>> {
-		let parent_hash = self.parent_hash;
-		let block_id = &self.block_id;
-
-		let mut header = self
-			.api
-			.finalize_block_with_context(&self.block_id, ExecutionContext::BlockConstruction)?;
-
-
-		// store hash of all extrinsics include in given bloack
-		let extrinsics_root = HashFor::<Block>::ordered_trie_root(
-			self.extrinsics.iter().map(Encode::encode).collect(),
-		);
-		header.set_extrinsics_root(extrinsics_root);
-		header.set_seed(seed);
+		let mut header = self.api.finalize_block_with_context(
+			&self.block_id, ExecutionContext::BlockConstruction
+		)?;
 
 		let proof = self.api.extract_proof();
 
@@ -258,12 +415,22 @@ where
 			&self.block_id,
 			self.backend.changes_trie_storage(),
 		)?;
+		let parent_hash = self.parent_hash;
 
 		let storage_changes = self.api.into_storage_changes(
 			&state,
 			changes_trie_state.as_ref(),
 			parent_hash,
 		).map_err(|e| sp_blockchain::Error::StorageChanges(e))?;
+
+		// store hash of all extrinsics include in given bloack
+		let extrinsics_root = HashFor::<Block>::ordered_trie_root(
+			self.extrinsics.iter().map(Encode::encode).collect(),
+		);
+		header.set_extrinsics_root(extrinsics_root);
+		header.set_seed(seed);
+
+
 
 		Ok(BuiltBlock {
 			block: <Block as BlockT>::new(header, self.extrinsics),
@@ -333,4 +500,5 @@ mod tests {
 				.contains("Database missing expected key"),
 		);
 	}
+
 }
