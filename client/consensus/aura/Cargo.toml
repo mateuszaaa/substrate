@@ -42,6 +42,7 @@ prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../..
 # See https://docs.rs/getrandom/0.2.1/getrandom/#webassembly-support
 getrandom = { version = "0.2", features = ["js"], optional = true }
 sc-keystore = { version = "3.0.0", path = "../../keystore" }
+schnorrkel = { version = "0.9.1", features = ["preaudit_deprecated"] }
 
 [dev-dependencies]
 sp-keyring = { version = "3.0.0", path = "../../../primitives/keyring" }
