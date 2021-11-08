@@ -251,8 +251,8 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 		let (seed, inherents) = block_builder.create_inherents(inherent_data.clone())?;
         debug!(target:"block_builder", "found {} inherents", inherents.len());
 		for inherent in inherents {
-            debug!(target:"block_builder", "processing inherent");
-			match block_builder.record_inherent(inherent) {
+			debug!(target:"block_builder", "processing inherent");
+			match block_builder.record_without_commiting_changes(inherent) {
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() =>
 					warn!("⚠️  Dropping non-mandatory inherent from overweight block."),
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.was_mandatory() => {
@@ -263,8 +263,8 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 					warn!("❗️ Inherent extrinsic returned unexpected error: {}. Dropping.", e);
 				}
 				Ok(_) => {
-                    trace!(target:"block_builder", "inherent pushed into the block");
-                }
+					trace!(target:"block_builder", "inherent pushed into the block");
+				}
 			}
 		}
 
@@ -272,9 +272,6 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 		let block_timer = time::Instant::now();
 		let mut skipped = 0;
 		let mut unqueue_invalid = Vec::new();
-		// let unqueue_invalid = Rc::new(RefCell::new(Vec::new()));
-		// let invalid = unqueue_invalid.clone();
-        //
         block_builder.apply_previous_block(seed.clone());
 
         let api = self.client.runtime_api();
@@ -298,6 +295,9 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 
 
 
+		/// after previous block is applied it is possible to prevalidate incomming transaction
+		/// but eventually changess needs to be rolled back, as those can be executed
+		/// only in the following(future) block
 		api.execute_in_transaction(|api| {
             debug!("Attempting to push transactions from the pool.");
             debug!("Pool status: {:?}", self.transaction_pool.status());
@@ -313,7 +313,7 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
                 let pending_tx_data = pending_tx.data().clone();
                 let pending_tx_hash = pending_tx.hash().clone();
                 trace!("[{:?}] Pushing to the block.", pending_tx_hash);
-                match sc_block_builder::BlockBuilder::push(&mut block_builder, pending_tx_data) {
+                match sc_block_builder::BlockBuilder::push_with_api(&mut block_builder, api, pending_tx_data) {
                     Ok(()) => {
                         debug!("[{:?}] Pushed to the block.", pending_tx_hash);
                     }
@@ -345,110 +345,6 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
             }
             TransactionOutcome::Rollback(())
         });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-		// api.execute_in_transaction(|api| {
-        //     // let mut extrinsics: Vec<_> = Vec::new();
-        //     for p in pending_iterator {
-        //         let pending_tx_data = p.data().clone();
-        //         let pending_tx_hash = p.hash().clone();
-        //
-        //         block_builder.push(pending_tx_data);
-        //
-        //
-        //
-        //         // let execution_status = api.execute_in_transaction(|_| {
-        //         //     match api.apply_extrinsic_with_context(
-        //         //         at,
-        //         //         ExecutionContext::BlockConstruction,
-        //         //         pending_tx_data.clone(),
-        //         //     ) {
-        //         //         Ok(Ok(_)) => TransactionOutcome::Commit(Ok(())),
-        //         //         Ok(Err(tx_validity)) => TransactionOutcome::Rollback(Err(Validity(tx_validity).into())),
-        //         //         Err(e) => TransactionOutcome::Rollback(Err(e)),
-        //         //     }
-        //         // });
-        //
-        //         // match execution_status {
-        //         //     Ok(()) => {
-        //         //         extrinsics.push(pending_tx_data);
-        //         //         debug!("[{:?}] Pushed to the block.", pending_tx_hash);
-        //         //     }
-        //         //     Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
-        //         //         if skipped < MAX_SKIPPED_TRANSACTIONS {
-        //         //             skipped += 1;
-        //         //             debug!(
-        //         //                 "Block seems full, but will try {} more transactions before quitting.",
-        //         //                 MAX_SKIPPED_TRANSACTIONS - skipped,
-        //         //             );
-        //         //         } else {
-        //         //             debug!("Block is full, proceed with proposing.");
-        //         //             break;
-        //         //         }
-        //         //     }
-        //         //     Err(e) if skipped > 0 => {
-        //         //         trace!(
-        //         //             "[{:?}] Ignoring invalid transaction when skipping: {}",
-        //         //             pending_tx_hash,
-        //         //             e
-        //         //         );
-        //         //     }
-        //         //     Err(e) => {
-        //         //         debug!("[{:?}] Invalid transaction: {}", pending_tx_hash, e);
-        //         //         // invalid.borrow_mut().push(pending_tx_hash);
-        //         //     }
-        //         // };
-        //     }
-        //     // extrinsics
-        //     TransactionOutcome::Rollback(())
-        // });
-        //
 
 		let (block, storage_changes, proof) = block_builder.build(seed)?.into_inner();
 
@@ -815,98 +711,5 @@ mod tests {
 		// now let's make sure that we can still make some progress
 		let block = propose_block(&client, 1, 2, 5);
 		client.import(BlockOrigin::Own, block).unwrap();
-	}
-
-	#[test]
-	fn mat_test() {
-		let (client, backend) = TestClientBuilder::new().build_with_backend();
-		let client = Arc::new(client);
-		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
-			Default::default(),
-			true.into(),
-			None,
-			spawner.clone(),
-			client.clone(),
-		);
-
-		let genesis_hash = client.info().best_hash;
-		let block_id = BlockId::Hash(genesis_hash);
-
-		futures::executor::block_on(
-			txpool.submit_at(&BlockId::number(0), SOURCE, vec![extrinsic(0)]),
-		).unwrap();
-
-		futures::executor::block_on(
-			txpool.maintain(chain_event(
-				client.header(&BlockId::Number(0u64))
-					.expect("header get error")
-					.expect("there should be header"),
-			))
-		);
-
-		let mut proposer_factory = ProposerFactory::new(
-			spawner.clone(),
-			client.clone(),
-			txpool.clone(),
-			None,
-		);
-
-		let proposer = proposer_factory.init_with_now(
-			&client.header(&block_id).unwrap().unwrap(),
-			Box::new(move || time::Instant::now()),
-		);
-
-		let api = client.runtime_api();
-        let hash1 = client.info().best_hash;
-		let state1 = backend.state_at(block_id).unwrap();
-		let changes_trie_state1 = backend::changes_tries_state_at_block(
-			&block_id,
-			backend.changes_trie_storage(),
-		).unwrap();
-		let storage_changes1 = api.into_storage_changes(
-			&state1,
-			changes_trie_state1.as_ref(),
-			genesis_hash,
-		).unwrap();
-
-		let deadline = time::Duration::from_secs(9);
-		let proposal = futures::executor::block_on(
-			proposer.propose(create_inherents(), Default::default(), deadline, RecordProof::No),
-		).unwrap();
-
-        let hash2 = client.info().best_hash;
-		let state2 = backend.state_at(block_id).unwrap();
-		let changes_trie_state2 = backend::changes_tries_state_at_block(
-			&block_id,
-			backend.changes_trie_storage(),
-		).unwrap();
-		let storage_changes2 = api.into_storage_changes(
-			&state2,
-			changes_trie_state2.as_ref(),
-			genesis_hash,
-		).unwrap();
-
-		assert_eq!(proposal.block.extrinsics().len(), 1);
-        //
-        assert_eq!(hash1, hash2);
-        assert_eq!(storage_changes1.transaction_storage_root, storage_changes2.transaction_storage_root);
-		// let api = client.runtime_api();
-		// api.execute_block(&block_id, proposal.block).unwrap();
-        // let hash3 = client.info().best_hash;
-        //
-        // assert_ne!(hash2, hash3);
-        //
-		// let state = backend.state_at(block_id).unwrap();
-		// let changes_trie_state = backend::changes_tries_state_at_block(
-		// 	&block_id,
-		// 	backend.changes_trie_storage(),
-		// ).unwrap();
-        //
-        //
-		// assert_eq!(
-		// 	proposal.storage_changes.transaction_storage_root,
-		// 	storage_changes.transaction_storage_root,
-		// );
 	}
 }
