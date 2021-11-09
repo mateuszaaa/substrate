@@ -39,6 +39,7 @@ use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
 use sp_api::{ProvideRuntimeApi, ApiExt, TransactionOutcome};
 use futures::{future, future::{Future, FutureExt}, channel::oneshot, select};
 use sp_blockchain::{HeaderBackend, ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed};
+use sp_inherents::ProvideInherentData;
 use std::marker::PhantomData;
 
 use std::cell::RefCell;
@@ -191,13 +192,19 @@ impl<A, B, Block, C> sp_consensus::Proposer<Block> for
 
 	fn propose(
 		self,
-		inherent_data: InherentData,
+		mut inherent_data: InherentData,
 		inherent_digests: DigestFor<Block>,
 		max_duration: time::Duration,
 		record_proof: RecordProof,
 	) -> Self::Proposal {
 		let (tx, rx) = oneshot::channel();
 		let spawn_handle = self.spawn_handle.clone();
+
+        if let Ok(None) = inherent_data.get_data::<sp_core::ShufflingSeed>(&sp_ver::RANDOM_SEED_INHERENT_IDENTIFIER){
+            sp_ver::RandomSeedInherentDataProvider(Default::default())
+                .provide_inherent_data(&mut inherent_data)
+                .unwrap();
+        }
 
 		spawn_handle.spawn_blocking("basic-authorship-proposer", Box::pin(async move {
 			// leave some time for evaluation and block finalization (33%)
