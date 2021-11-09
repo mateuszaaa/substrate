@@ -302,9 +302,9 @@ impl<A, B, Block, C> Proposer<B, Block, C, A>
 
 
 
-		/// after previous block is applied it is possible to prevalidate incomming transaction
-		/// but eventually changess needs to be rolled back, as those can be executed
-		/// only in the following(future) block
+		// after previous block is applied it is possible to prevalidate incomming transaction
+		// but eventually changess needs to be rolled back, as those can be executed
+		// only in the following(future) block
 		api.execute_in_transaction(|api| {
             debug!("Attempting to push transactions from the pool.");
             debug!("Pool status: {:?}", self.transaction_pool.status());
@@ -402,7 +402,7 @@ mod tests {
 	use parking_lot::Mutex;
 	use sp_consensus::{BlockOrigin, Proposer};
 	use substrate_test_runtime_client::{
-		prelude::*, TestClientBuilder, runtime::{Extrinsic, Transfer}, TestClientBuilderExt,
+		prelude::*, TestClientBuilder, runtime::{Block, Extrinsic, Transfer}, TestClientBuilderExt,
 	};
 	use sp_transaction_pool::{ChainEvent, MaintainedTransactionPool, TransactionSource};
 	use sc_transaction_pool::BasicPool;
@@ -421,10 +421,6 @@ mod tests {
 		RandomSeedInherentDataProvider(Default::default())
 			.provide_inherent_data(&mut data)
 			.unwrap();
-
-		// sp_ignore_tx::IgnoreTXInherentDataProvider(false)
-		// 	.provide_inherent_data(&mut data)
-		// 	.unwrap();
 		data
 	}
 
@@ -550,7 +546,7 @@ mod tests {
 	fn proposed_storage_changes_should_match_execute_block_storage_changes() {
         env_logger::try_init();
 		let (client, backend) = TestClientBuilder::new().build_with_backend();
-		let client = Arc::new(client);
+		let mut client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let txpool = BasicPool::new_full(
 			Default::default(),
@@ -593,9 +589,13 @@ mod tests {
 		).unwrap();
 
 		assert_eq!(proposal.block.extrinsics().len(), 1);
+        // client.import(BlockOrigin::Own, proposal.block).unwrap();
 
 		let api = client.runtime_api();
-		api.execute_block(&block_id, proposal.block).unwrap();
+		let mut header = proposal.block.header.clone();
+		let prev_header = backend.blockchain().header(BlockId::Hash(genesis_hash)).unwrap().unwrap();
+		header.set_extrinsics_root(*prev_header.extrinsics_root());
+		api.execute_block(&block_id, <Block as BlockT>::new(header, vec![])).unwrap();
 
 		let state = backend.state_at(block_id).unwrap();
 		let changes_trie_state = backend::changes_tries_state_at_block(
@@ -616,7 +616,6 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore]
 	fn should_not_remove_invalid_transactions_when_skipping() {
 		// given
 		let mut client = Arc::new(substrate_test_runtime_client::new());
@@ -692,6 +691,7 @@ mod tests {
 
 		// let's create one block and import it
 		let block = propose_block(&client, 0, 2, 7);
+        println!("{:?}", block.extrinsics());
 		let block_hash = block.header().hash();
 		client.import(BlockOrigin::Own, block).unwrap();
 
@@ -716,7 +716,8 @@ mod tests {
 		);
 
 		// now let's make sure that we can still make some progress
-		let block = propose_block(&client, 1, 2, 5);
+		let block = propose_block(&client, 2, 2, 5);
+        println!("{:?}", block.extrinsics());
 		client.import(BlockOrigin::Own, block).unwrap();
 	}
 }
