@@ -105,6 +105,7 @@ pub struct BlockBuilder<'a, Block: BlockT, A: ProvideRuntimeApi<Block>, B> {
 	block_id: BlockId<Block>,
 	parent_hash: Block::Hash,
 	backend: &'a B,
+	previous_block_applied: bool,
 }
 
 impl<'a, Block, A, B> BlockBuilder<'a, Block, A, B>
@@ -155,6 +156,7 @@ where
 			api,
 			block_id,
 			backend,
+			previous_block_applied: false,
 		})
 	}
 
@@ -284,7 +286,8 @@ where
 			None => {
 				info!("No extrinsics found for previous block");
 			}
-        }
+		}
+		self.previous_block_applied = true;
     }
 
 	/// Consume the builder to build a valid `Block` containing all pushed extrinsics.
@@ -296,6 +299,9 @@ where
 		mut self,
 		seed: ShufflingSeed,
 	) -> Result<BuiltBlock<Block, backend::StateBackendFor<B, Block>>, ApiErrorFor<A, Block>> {
+		if ! self.previous_block_applied {
+			self.apply_previous_block(seed.clone())
+		}
 		let mut header = self.api.finalize_block_with_context(
 			&self.block_id, ExecutionContext::BlockConstruction
 		)?;
