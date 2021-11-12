@@ -249,6 +249,7 @@ mod tests {
 					crate::generic::DigestItem::Other(b"6".to_vec()),
 				],
 			},
+            seed: Default::default(),
 		};
 
 		let header_encoded = header.encode();
@@ -278,6 +279,7 @@ mod tests {
 					crate::generic::DigestItem::ChangesTrieRoot(BlakeTwo256::hash(b"6000")),
 				],
 			},
+            seed: Default::default(),
 		};
 
 		let header_encoded = header.encode();
