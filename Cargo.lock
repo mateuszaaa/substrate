@@ -7157,15 +7157,18 @@ dependencies = [
  "sc-consensus",
  "sc-telemetry",
  "sp-api",
+ "sp-application-crypto",
  "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-slots",
  "sp-core",
  "sp-inherents",
+ "sp-keystore",
  "sp-runtime",
  "sp-state-machine",
  "sp-timestamp",
+ "sp-ver",
  "substrate-test-runtime-client",
  "thiserror",
 ]
@@ -9014,7 +9017,7 @@ dependencies = [
 
 [[package]]
 name = "sp-ver"
-version = "4.0.0-dev"
+version = "0.10.0-dev"
 dependencies = [
  "async-trait",
  "log 0.4.14",
