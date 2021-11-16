@@ -9340,6 +9340,7 @@ name = "substrate-test-runtime"
 version = "2.0.0"
 dependencies = [
  "cfg-if 1.0.0",
+ "extrinsic-info-runtime-api",
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
@@ -9375,6 +9376,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-trie",
+ "sp-ver",
  "sp-version",
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
@@ -9385,6 +9387,7 @@ dependencies = [
 name = "substrate-test-runtime-client"
 version = "2.0.0"
 dependencies = [
+ "extrinsic-info-runtime-api",
  "futures 0.3.16",
  "parity-scale-codec",
  "sc-block-builder",
