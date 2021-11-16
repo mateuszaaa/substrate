@@ -6942,6 +6942,9 @@ dependencies = [
 name = "sc-block-builder"
 version = "0.10.0-dev"
 dependencies = [
+ "extrinsic-info-runtime-api",
+ "extrinsic-shuffler",
+ "log 0.4.14",
  "parity-scale-codec",
  "sc-client-api",
  "sp-api",
@@ -6951,6 +6954,7 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
+ "sp-ver",
  "substrate-test-runtime-client",
 ]
 
