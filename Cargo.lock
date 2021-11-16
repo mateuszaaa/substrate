@@ -6917,6 +6917,7 @@ dependencies = [
 name = "sc-basic-authorship"
 version = "0.10.0-dev"
 dependencies = [
+ "extrinsic-info-runtime-api",
  "futures 0.3.16",
  "futures-timer 3.0.2",
  "log 0.4.14",
@@ -6934,6 +6935,7 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-runtime",
+ "sp-ver",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
 ]
