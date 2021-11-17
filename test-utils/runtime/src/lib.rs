@@ -1302,6 +1302,7 @@ mod tests {
 	};
 
 	#[test]
+	#[ignore]
 	fn heap_pages_is_respected() {
 		// This tests that the on-chain HEAP_PAGES parameter is respected.
 
