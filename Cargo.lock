@@ -4394,12 +4394,12 @@ dependencies = [
 name = "node-primitives"
 version = "2.0.0"
 dependencies = [
- "frame-system 4.0.0-dev",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-application-crypto 4.0.0-dev",
- "sp-core 4.0.0-dev",
- "sp-runtime 4.0.0-dev",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -4409,8 +4409,8 @@ dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-executive",
- "frame-support 4.0.0-dev",
- "frame-system 4.0.0-dev",
+ "frame-support",
+ "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
@@ -4467,18 +4467,18 @@ dependencies = [
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-babe",
- "sp-core 4.0.0-dev",
- "sp-inherents 4.0.0-dev",
- "sp-io 4.0.0-dev",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
  "sp-keyring",
  "sp-npos-elections",
  "sp-offchain",
- "sp-runtime 4.0.0-dev",
+ "sp-runtime",
  "sp-session",
- "sp-staking 4.0.0-dev",
- "sp-std 4.0.0-dev",
+ "sp-staking",
+ "sp-std",
  "sp-transaction-pool",
- "sp-version 4.0.0-dev",
+ "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
 ]
@@ -5444,8 +5444,8 @@ version = "4.0.0-dev"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
- "frame-support 4.0.0-dev",
- "frame-system 4.0.0-dev",
+ "frame-support",
+ "frame-system",
  "pallet-babe",
  "pallet-balances",
  "pallet-grandpa",
@@ -5457,11 +5457,11 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
- "sp-core 4.0.0-dev",
- "sp-io 4.0.0-dev",
- "sp-runtime 4.0.0-dev",
- "sp-staking 4.0.0-dev",
- "sp-std 4.0.0-dev",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
 ]
 
 [[package]]
@@ -7366,21 +7366,21 @@ dependencies = [
  "schnorrkel",
  "serde",
  "sp-api",
- "sp-application-crypto 4.0.0-dev",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-consensus-vrf",
- "sp-core 4.0.0-dev",
- "sp-inherents 4.0.0-dev",
- "sp-io 4.0.0-dev",
- "sp-keystore 0.10.0-dev",
- "sp-runtime 4.0.0-dev",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
  "sp-timestamp",
- "sp-tracing 4.0.0-dev",
- "sp-version 4.0.0-dev",
+ "sp-tracing",
+ "sp-version",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "tempfile",
@@ -7403,14 +7403,14 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
- "sp-application-crypto 4.0.0-dev",
+ "sp-application-crypto",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
- "sp-core 4.0.0-dev",
+ "sp-core",
  "sp-keyring",
- "sp-keystore 0.10.0-dev",
- "sp-runtime 4.0.0-dev",
+ "sp-keystore",
+ "sp-runtime",
  "substrate-test-runtime-client",
  "tempfile",
 ]
@@ -7453,10 +7453,10 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-babe",
  "sp-consensus-slots",
- "sp-core 4.0.0-dev",
- "sp-inherents 4.0.0-dev",
- "sp-keystore 0.10.0-dev",
- "sp-runtime 4.0.0-dev",
+ "sp-core",
+ "sp-inherents",
+ "sp-keystore",
+ "sp-runtime",
  "sp-timestamp",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
@@ -8093,7 +8093,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-blockchain",
- "sp-runtime 4.0.0-dev",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -9884,7 +9884,7 @@ dependencies = [
 name = "test-runner"
 version = "0.9.0"
 dependencies = [
- "frame-system 4.0.0-dev",
+ "frame-system",
  "futures 0.3.16",
  "jsonrpc-core",
  "log 0.4.14",
@@ -9909,18 +9909,18 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
- "sp-core 4.0.0-dev",
- "sp-externalities 0.10.0-dev",
+ "sp-core",
+ "sp-externalities",
  "sp-finality-grandpa",
- "sp-inherents 4.0.0-dev",
+ "sp-inherents",
  "sp-keyring",
  "sp-offchain",
- "sp-runtime 4.0.0-dev",
- "sp-runtime-interface 4.0.0-dev",
+ "sp-runtime",
+ "sp-runtime-interface",
  "sp-session",
- "sp-state-machine 0.10.0-dev",
+ "sp-state-machine",
  "sp-transaction-pool",
- "sp-wasm-interface 4.0.0-dev",
+ "sp-wasm-interface",
  "tokio",
 ]
 
@@ -11448,8 +11448,4 @@ dependencies = [
 
 [[patch.unused]]
 name = "sc-finality-grandpa-rpc"
-version = "0.10.0-dev"
-
-[[patch.unused]]
-name = "sc-sync-state-rpc"
 version = "0.10.0-dev"
