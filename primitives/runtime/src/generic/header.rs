@@ -52,6 +52,8 @@ pub struct Header<Number: Copy + Into<U256> + TryFrom<U256>, Hash: HashT> {
 	pub extrinsics_root: Hash::Output,
 	/// A chain-specific digest of data useful for light clients or referencing auxiliary data.
 	pub digest: Digest,
+	/// Number of extrinsics in this block (rest comes from previous one)
+	pub count: Number,
 }
 
 #[cfg(feature = "std")]
@@ -66,7 +68,8 @@ where
 			self.number.size_of(ops) +
 			self.state_root.size_of(ops) +
 			self.extrinsics_root.size_of(ops) +
-			self.digest.size_of(ops)
+			self.digest.size_of(ops) +
+			self.count.size_of(ops)
 	}
 }
 
@@ -167,7 +170,14 @@ where
 		parent_hash: Self::Hash,
 		digest: Digest,
 	) -> Self {
-		Self { number, extrinsics_root, state_root, parent_hash, digest }
+		Self {
+			number,
+			extrinsics_root,
+			state_root,
+			parent_hash,
+			digest,
+			count: 133_u32.into(),
+		}
 	}
 }
 
